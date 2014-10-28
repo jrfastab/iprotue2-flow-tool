@@ -228,7 +228,9 @@ static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 		nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_TYPE]) : 0;
 
 	if (!type) {
-		if (last_id == hi && fields_names)
+		if (!hi && !fi)
+			pfprintf(stdout, p, " <any>");
+		else if (last_id == hi && fields_names)
 			pfprintf(stdout, p, " %s", fields_names[hi][fi]);
 		else if (last_id < 0 && headers_names && fields_names)
 			pfprintf(stdout, p, "\t field: %s [%s", headers_names[hi], fields_names[hi][fi]);
@@ -487,6 +489,8 @@ static int flow_table_attribs_parse(int verbose, struct nlattr *nlattr)
 	name = table[HW_FLOW_TABLE_ATTR_NAME] ? nla_get_string(table[HW_FLOW_TABLE_ATTR_NAME]) : "<none>",
 	uid = table[HW_FLOW_TABLE_ATTR_UID] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_UID]) : 0;
 
+	table_names[uid] = name;
+
 	if (verbose) {
 		fprintf(stdout, "\n%s:%i src %i size %i\n",
 			name, uid,
@@ -512,7 +516,7 @@ static int flow_table_attribs_parse(int verbose, struct nlattr *nlattr)
 
 			act = &action_names[uid];
 			if (act->uid)
-				pp_action(stdout, true, act);
+				pp_action(stdout, verbose, act);
 		}
 	}
 
@@ -691,6 +695,88 @@ static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 		flow_table_headers_parse(stdout, verbose, tb[FLOW_TABLE_HEADERS]);
 }
 
+static struct nla_policy flow_get_jump_policy[HW_FLOW_JUMP_TABLE_MAX+1] = {
+	[HW_FLOW_JUMP_TABLE_NODE]  = { .type = NLA_U32, },
+	[HW_FLOW_JUMP_TABLE_FIELD] = { .type = NLA_NESTED, },
+};
+
+static int flow_table_tbl_graph_jump(FILE *fp, bool p, struct nlattr *nl)
+{
+	struct nlattr *i;
+	int rem, err;
+
+	rem = nla_len(nl);
+	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
+		struct hw_flow_field_ref ref = {.header = -1, };
+		struct nlattr *jump[HW_FLOW_JUMP_TABLE_MAX];
+		int node;
+
+		err = nla_parse_nested(jump, HW_FLOW_JUMP_TABLE_MAX, i, flow_get_jump_policy);
+		if (err) {
+			fprintf(stderr, "Warning parsing jump tabled failed\n");
+			continue;
+		}
+
+		if (!jump[HW_FLOW_JUMP_TABLE_NODE])
+			fprintf(stderr, "Warning no jump table node!\n");
+
+		if (!jump[HW_FLOW_JUMP_TABLE_FIELD])
+			fprintf(stderr, "Warning no jump table field!\n");
+
+		node = nla_get_u32(jump[HW_FLOW_JUMP_TABLE_NODE]);
+		if (node < 0)
+			pfprintf(fp, p, "\n\t terminating node", node);
+		else
+			pfprintf(fp, p, "\n\t to node %i when", node);
+
+		nl_to_hw_flow_field_ref(stdout, p, &ref,
+					jump[HW_FLOW_JUMP_TABLE_FIELD],
+					headers_names, fields_names);
+	}
+}
+
+static struct nla_policy flow_get_node_policy[HW_TABLE_GRAPH_NODE_MAX + 1] = {
+	[HW_TABLE_GRAPH_NODE_UID]    = { .type = NLA_U32,},
+	[HW_TABLE_GRAPH_NODE_JUMP]   = { .type = NLA_NESTED,},
+};
+
+static void flow_table_tbl_graph_parse(FILE *fp, bool p, struct nlattr *nl)
+{
+	struct nlattr *i;
+	int rem, err, uid;
+
+	rem = nla_len(nl);
+	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
+		struct nlattr *node[HW_TABLE_GRAPH_NODE_MAX+1];
+
+		err = nla_parse_nested(node, HW_TABLE_GRAPH_NODE_MAX, i, flow_get_node_policy);
+		if (err) {
+			fprintf(stderr, "Warning table graph node parse error. aborting.\n");
+			return;
+		}
+
+		if (!node[HW_TABLE_GRAPH_NODE_UID]) {
+			fprintf(stderr, "Warning, missing graph node uid\n");
+			continue;
+		}
+
+		uid = nla_get_u32(node[HW_TABLE_GRAPH_NODE_UID]);
+		pfprintf(fp, p, "table %s ", table_names[uid]);
+
+		if (!node[HW_TABLE_GRAPH_NODE_JUMP]) {
+			fprintf(stderr, "Warning, missing graph node jump table\n");
+			continue;
+		}
+
+		err = flow_table_tbl_graph_jump(fp, p, node[HW_TABLE_GRAPH_NODE_JUMP]);
+		if (err) {
+			fprintf(stderr, "Warning table graph jump parse error. aborting.\n");
+			return;
+		}
+		pfprintf(fp, p, "\n");
+	}	
+}
+
 static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
@@ -709,7 +795,26 @@ static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
 
 	if (tb[FLOW_TABLE_ACTIONS])
 		flow_table_actions_parse(verbose, tb[FLOW_TABLE_ACTIONS]);
+}
 
+static void flow_table_cmd_get_table_graph(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[FLOW_TABLE_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, FLOW_TABLE_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		return;
+	}
+
+	if (flow_table_cmd_to_type(stdout, false, FLOW_TABLE_TABLE_GRAPH, tb))
+		return;
+
+	if (tb[FLOW_TABLE_TABLE_GRAPH])
+		flow_table_tbl_graph_parse(stdout, verbose, tb[FLOW_TABLE_TABLE_GRAPH]);
 }
 
 static
@@ -841,7 +946,8 @@ struct flow_msg *recv_flow_msg(int *err)
 	if (type != FLOW_TABLE_CMD_GET_TABLES &&
 	    type != FLOW_TABLE_CMD_GET_HEADERS &&
 	    type != FLOW_TABLE_CMD_GET_ACTIONS &&
-	    type != FLOW_TABLE_CMD_GET_FLOWS) {
+	    type != FLOW_TABLE_CMD_GET_FLOWS &&
+	    type != FLOW_TABLE_CMD_GET_TABLE_GRAPH) {
 		printf("Received message of unknown type %d\n", 
 			type);
 		free_flow_msg(msg);
@@ -856,7 +962,7 @@ static void(*type_cb[FLOW_TABLE_MAX+1])(struct flow_msg *, int err) = {
 	flow_table_cmd_get_headers,
 	flow_table_cmd_get_actions,
 	NULL,
-	NULL,
+	flow_table_cmd_get_table_graph,
 	flow_table_cmd_get_flows,
 	NULL
 };
@@ -886,7 +992,7 @@ void process_rx_message(int verbose)
 
 void flow_usage()
 {
-	fprintf(stdout, "flow <dev> [get_tables | get_headers | get_actions | get_flows <table>]\n");
+	fprintf(stdout, "flow <dev> [get_tables | get_headers | get_actions | get_flows <table> | get_graph]\n");
 }
 
 int flow_send_recv(bool verbose, int family, int ifindex, int cmd, int tableid)
@@ -945,6 +1051,8 @@ int main(int argc, char **argv)
 			cmd = FLOW_TABLE_CMD_GET_HEADERS;
 		} else if (strcmp(argv[2], "get_actions") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_ACTIONS;
+		} else if (strcmp(argv[2], "get_graph") == 0) {
+			cmd = FLOW_TABLE_CMD_GET_TABLE_GRAPH;
 		} else if (strcmp(argv[2], "get_flows") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_FLOWS;
 			if (argc < 4) {
@@ -990,11 +1098,16 @@ int main(int argc, char **argv)
 	nl_close(fd);
 	nl_socket_free(fd);
 
-	if (resolve_names && cmd == FLOW_TABLE_CMD_GET_TABLES || cmd == FLOW_TABLE_CMD_GET_FLOWS) {
+	if (resolve_names &&
+	    (cmd == FLOW_TABLE_CMD_GET_TABLES || cmd == FLOW_TABLE_CMD_GET_FLOWS ||
+	     cmd == FLOW_TABLE_CMD_GET_TABLE_GRAPH)) {
 		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_HEADERS, 0);
 		if (err)
 			goto out;
 		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_ACTIONS, 0);
+		if (err)
+			goto out;
+		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_TABLES, 0);
 		if (err)
 			goto out;
 	}
