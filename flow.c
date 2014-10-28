@@ -1,3 +1,29 @@
+/*******************************************************************************
+
+  Flow Agent
+  Copyright(c) 2014 Intel Corporation.
+
+  This program is free software; you can redistribute it and/or modify it
+  under the terms and conditions of the GNU General Public License,
+  version 2, as published by the Free Software Foundation.
+
+  This program is distributed in the hope it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  more details.
+
+  You should have received a copy of the GNU General Public License along with
+  this program; if not, write to the Free Software Foundation, Inc.,
+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+
+  The full GNU General Public License is included in this distribution in
+  the file called "COPYING".
+
+  Author: John Fastabend <john.r.fastabend@intel.com>
+
+*******************************************************************************/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -26,7 +52,7 @@
 char *table_names[MAX_TABLES];
 char *headers_names[MAX_HDRS];		/* Hack to get this working need a real datastructure */
 char *fields_names[MAX_HDRS][MAX_FIELDS]; /* Hack to get this working need a real datastructure */
-char *action_names[MAX_TABLES][MAX_ACTIONS];
+struct hw_flow_action action_names[MAX_ACTIONS];
 
 static struct nl_sock *nsd;
 
@@ -111,7 +137,6 @@ void handle_flow_table_get_tables(struct flow_msg *amsg, struct flow_msg *msg, i
 		fprintf(stderr, "Netlink request error: %s\n", strerror(err));
 		return;
 	}
-
 	printf("got reply what is it?\n");
 }
 
@@ -156,11 +181,7 @@ static struct nla_policy flow_get_tables_policy[FLOW_TABLE_MAX+1] = {
 	[FLOW_TABLE_ACTIONS] 		= { .type = NLA_NESTED },
 	[FLOW_TABLE_PARSE_GRAPH] 	= { .type = NLA_NESTED },
 	[FLOW_TABLE_TABLE_GRAPH] 	= { .type = NLA_NESTED },
-};
-
-struct nla_policy hw_flow_tables_policy[HW_FLOW_TABLES_MAX+1] = {
-	[HW_FLOW_TABLES_SIZE]	= { .type = NLA_U32 },
-	[HW_FLOW_TABLES_TABLE]	= { .type = NLA_NESTED },
+	[FLOW_TABLE_FLOWS]		= { .type = NLA_NESTED },
 };
 
 struct nla_policy hw_flow_table_policy[HW_FLOW_TABLE_ATTR_MAX + 1] = {
@@ -190,7 +211,7 @@ static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 {
 	struct nlattr *match[HW_FLOW_FIELD_REF_ATTR_MAX+1];
 	int hi, fi, type, last_id = ref->header;
-	char b1[10];
+	char b1[64];
 	int err;
 
 	err = nla_parse_nested(match, HW_FLOW_FIELD_REF_ATTR_MAX, attr, hw_flow_field_ref_policy);
@@ -230,25 +251,25 @@ static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		ref->value_u8 = nla_get_u8(match[HW_FLOW_FIELD_REF_ATTR_VALUE]);
 		ref->mask_u8 = nla_get_u8(match[HW_FLOW_FIELD_REF_ATTR_MASK]);
-		pfprintf(stdout, p, "\t\t %s.%s = %02x (%02x)\n",
+		pfprintf(stdout, p, "\t %s.%s = %02x (%02x)\n",
 			headers_names[hi], fields_names[hi][fi], ref->value_u8, ref->mask_u8);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		ref->value_u16 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u16(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u16 = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u16(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, "\n\t\t %s.%s = %04x (%04x)\n",
+		pfprintf(stdout, p, "\t %s.%s = %04x (%04x)\n",
 			headers_names[hi], fields_names[hi][fi], ref->value_u16, ref->mask_u16);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		ref->value_u32 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u32   = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, " %s.%s = %08x (%08x)\n",
+		pfprintf(stdout, p, "\t %s.%s = %08x (%08x)\n",
 			headers_names[hi], fields_names[hi][fi], ref->value_u32, ref->mask_u32);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		ref->value_u64 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u64(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u64   = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u64(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, "\t\t %s.%s = %s (%016x)\n",
+		pfprintf(stdout, p, "\t %s.%s = %s (%016x)\n",
 			 headers_names[hi], fields_names[hi][fi],
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
 			 ref->value_u64, ref->mask_u64);
@@ -267,7 +288,7 @@ struct nla_policy hw_flow_action_policy[HW_FLOW_ACTION_ATTR_MAX + 1] = {
 	[HW_FLOW_ACTION_ATTR_UID]	= {.type = NLA_U32 },
 	[HW_FLOW_ACTION_ATTR_SIGNATURE] = {.type = NLA_NESTED },
 };
-struct nla_policy hw_flow_action_arg_policy[HW_FLOW_ACTION_ATTR_MAX + 1] = {
+struct nla_policy hw_flow_action_arg_policy[HW_FLOW_ACTION_ARG_TYPE_MAX + 1] = {
 	[HW_FLOW_ACTION_ARG_NAME] = {.type = NLA_STRING, .maxlen = IFNAMSIZ-1 },
 	[HW_FLOW_ACTION_ARG_TYPE] = {.type = NLA_U32 },
 	[HW_FLOW_ACTION_ARG_VALUE] = {.type = NLA_UNSPEC, },
@@ -281,20 +302,58 @@ const char *flow_table_arg_type_str[__HW_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 	"u64",
 };
 
-static int nl_to_sw_action(FILE *fp, bool p, bool flows, int tbl,
-			   struct hw_flow_action *act,
-			   struct nlattr *attr,
-			   char *action_names[][MAX_ACTIONS])
+static void pp_action(FILE *fp, bool p, struct hw_flow_action *act)
+{
+	int count = sizeof(*act->args) / sizeof(struct hw_flow_action_arg);
+	struct hw_flow_action_arg *arg;
+	int i;
+
+	pfprintf(fp, p, "\t   %i: %s ( ", act->uid, act->name);
+
+	if (!act->args)
+		goto out;
+
+	for (i = 0; i < count; i++) {
+		arg = &act->args[i];
+
+		pfprintf(fp, p, "%s %s ",
+			 flow_table_arg_type_str[arg->type],
+			 arg->name ? arg->name : "");
+
+		switch (arg->type) {
+		case HW_FLOW_ACTION_ARG_TYPE_U8:
+			pfprintf(fp, p, "%02x ", arg->value_u8);
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_U16:
+			pfprintf(fp, p, "%i ", arg->value_u16);
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_U32:
+			pfprintf(fp, p, "%i ", arg->value_u32);
+		break;
+		case HW_FLOW_ACTION_ARG_TYPE_U64:
+			pfprintf(fp, p, "%llu ", arg->value_u64);
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_NULL:
+		default:
+			break;
+		}
+	}
+out:
+	pfprintf(fp, p, " )\n");
+}
+
+static int nl_to_sw_action(FILE *fp, bool p, struct nlattr *attr)
 {
 	int rem;
 	struct nlattr *signature, *l;
 	struct nlattr *action[HW_FLOW_ACTION_ATTR_MAX+1];
+	struct hw_flow_action *act;
 	int err, uid, count = 0;
 	char *name;
 
 	err = nla_parse_nested(action, HW_FLOW_ACTION_ATTR_MAX, attr, hw_flow_action_policy);
 	if (err) {
-		fprintf(stdout, "Warning, parse error parsing actions %i\n", err);
+		fprintf(stderr, "Warning, parse error parsing actions %i\n", err);
 		return -EINVAL;
 	}
 
@@ -302,31 +361,35 @@ static int nl_to_sw_action(FILE *fp, bool p, bool flows, int tbl,
 	if (uid < 0)
 		return 0;
 
-	name = action[HW_FLOW_ACTION_ATTR_NAME] ?
-		nla_get_string(action[HW_FLOW_ACTION_ATTR_NAME]) : NULL;
+	act = &action_names[uid];
 
-	if (name)
-		action_names[tbl][uid] = name;
-
-	pfprintf(stdout, p, "\t %i: %s ( ", uid, action_names[tbl][uid]);
+	if (action[HW_FLOW_ACTION_ATTR_NAME]) {
+		act->uid = uid;
+		name = nla_get_string(action[HW_FLOW_ACTION_ATTR_NAME]);
+		strncpy(act->name, name, IFNAMSIZ - 1);
+	} else if (act->uid) {
+		name = act->name;
+	} else {
+		name = "<none>";
+	}
 
 	if (!action[HW_FLOW_ACTION_ATTR_SIGNATURE])
 		return 0;
 
 	signature = action[HW_FLOW_ACTION_ATTR_SIGNATURE];
-
-	if (act) {
-		strncpy(act->name, action_names[tbl][uid], IFNAMSIZ);
-		act->uid = uid;
-
-		rem = nla_len(signature);
-		for (l = nla_data(signature); nla_ok(l, rem); l = nla_next(l, &rem))
-			count++;
+	rem = nla_len(signature);
+	for (l = nla_data(signature); nla_ok(l, rem); l = nla_next(l, &rem))
+		count++;
 	
+	if (act->args) /* replace args with new values */
+		free(act->args);
+
+	if (count > 0) {
 		act->args = malloc(sizeof(struct hw_flow_action_arg) * count);
 		if (!act->args)
 			return -ENOMEM;
 	}
+
 	count = 0;
 
 	rem = nla_len(signature);
@@ -348,49 +411,40 @@ static int nl_to_sw_action(FILE *fp, bool p, bool flows, int tbl,
 		argname = arg[HW_FLOW_ACTION_ARG_NAME] ?
 			  nla_get_string(arg[HW_FLOW_ACTION_ARG_NAME]) : "";
 		t = arg[HW_FLOW_ACTION_ARG_TYPE] ? nla_get_u32(arg[HW_FLOW_ACTION_ARG_TYPE]) : 0;
-		pfprintf(stdout, flows, "%s %s ", flow_table_arg_type_str[t], argname);
 
-		if (act) {
-			strncpy(act->args[count].name, argname, IFNAMSIZ);
-			act->args[count].type = t;
-		}
+		strncpy(act->args[count].name, argname, IFNAMSIZ);
+		act->args[count].type = t;
 
 		switch (t) {
 		case HW_FLOW_ACTION_ARG_TYPE_U8:
 			vu8 = nla_get_u8(arg[HW_FLOW_ACTION_ARG_VALUE]);
-			if (act)
-				act->args[count].value_u8 = vu8;
-			pfprintf(stdout, p, "%02x ", vu8);
+			act->args[count].value_u8 = vu8;
 			break;
 		case HW_FLOW_ACTION_ARG_TYPE_U16:
 			vu16 = nla_get_u16(arg[HW_FLOW_ACTION_ARG_VALUE]);
-			if (act)
-				act->args[count].value_u16 = vu16;
-			pfprintf(stdout, p, "%i ", vu16);
+			act->args[count].value_u16 = vu16;
 			break;
 		case HW_FLOW_ACTION_ARG_TYPE_U32:
 			vu32 = nla_get_u32(arg[HW_FLOW_ACTION_ARG_VALUE]);
-			if (act)
-				act->args[count].value_u32 = vu32;
-			pfprintf(stdout, p, "%i ", vu32);
+			act->args[count].value_u32 = vu32;
 			break;
 		case HW_FLOW_ACTION_ARG_TYPE_U64:
 			vu64 = nla_get_u64(arg[HW_FLOW_ACTION_ARG_VALUE]);
-			if (act)
-				act->args[count].value_u64 = vu64;
-			pfprintf(stdout, p, "%llu ", vu64);
+			act->args[count].value_u64 = vu64;
 			break;
+		case HW_FLOW_ACTION_ARG_TYPE_NULL:
 		default:
 			break;
 		}
 
 		count++;
 	}
-	pfprintf(stdout, p, " )\n");
+
+	pp_action(fp, p, act);
 	return 0;
 }
 
-static int flow_table_matches_parse(struct nlattr *nl)
+static int flow_table_matches_parse(int verbose, bool brace, struct nlattr *nl)
 {
 	struct hw_flow_field_ref ref = {.header = -1, };
 	bool print_brace = false;
@@ -399,28 +453,25 @@ static int flow_table_matches_parse(struct nlattr *nl)
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
-		nl_to_hw_flow_field_ref(stdout, true, &ref, i, headers_names, fields_names);
+		nl_to_hw_flow_field_ref(stdout, verbose, &ref, i, headers_names, fields_names);
 		print_brace = true;
 	}
 
-	if (print_brace)
+	if (verbose && brace && print_brace)
 		fprintf(stdout, "]\n");
 }
 
-static int flow_table_actions_parse(struct nlattr *nl, int uid)
+static int flow_table_actions_parse(int verbose, struct nlattr *nl)
 {
 	struct nlattr *i;
 	int err, rem;
 
 	rem = nla_len(nl);
-	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
- 		struct hw_flow_action act = {0};
-
-		nl_to_sw_action(stdout, true, true, uid, &act, i, action_names);
-	}
+	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) 
+		nl_to_sw_action(stdout, verbose, i);
 }
 
-static int flow_table_attribs_parse(struct nlattr *nlattr)
+static int flow_table_attribs_parse(int verbose, struct nlattr *nlattr)
 {
 	struct nlattr *table[HW_FLOW_TABLE_ATTR_MAX+1];
 	struct nlattr *i;
@@ -429,44 +480,61 @@ static int flow_table_attribs_parse(struct nlattr *nlattr)
 
 	err = nla_parse_nested(table, HW_FLOW_TABLE_ATTR_MAX, nlattr, hw_flow_table_policy);
 	if (err) {
-		fprintf(stdout, "Warning parse error flow attribs, abort parse\n");
+		fprintf(stderr, "Warning parse error flow attribs, abort parse\n");
 		return err;
 	}
 
 	name = table[HW_FLOW_TABLE_ATTR_NAME] ? nla_get_string(table[HW_FLOW_TABLE_ATTR_NAME]) : "<none>",
-	uid = table[HW_FLOW_TABLE_ATTR_UID] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_UID]) : 0,
+	uid = table[HW_FLOW_TABLE_ATTR_UID] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_UID]) : 0;
 
-	fprintf(stdout, "%s:%i src %i size %i\n",
-		name, uid,
-		table[HW_FLOW_TABLE_ATTR_SOURCE] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_SOURCE]) : 0,
-		table[HW_FLOW_TABLE_ATTR_SIZE] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_SIZE]) : 0);
+	if (verbose) {
+		fprintf(stdout, "\n%s:%i src %i size %i\n",
+			name, uid,
+			table[HW_FLOW_TABLE_ATTR_SOURCE] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_SOURCE]) : 0,
+			table[HW_FLOW_TABLE_ATTR_SIZE] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_SIZE]) : 0);
 
-	fprintf(stdout, "  matches:\n");
-	if (table[HW_FLOW_TABLE_ATTR_MATCHES])
-		flow_table_matches_parse(table[HW_FLOW_TABLE_ATTR_MATCHES]);
-
-	fprintf(stdout, "  actions:\n");
-	if (table[HW_FLOW_TABLE_ATTR_ACTIONS]) {
-		flow_table_actions_parse(table[HW_FLOW_TABLE_ATTR_ACTIONS], uid);
+		fprintf(stdout, "  matches:\n");
 	}
+
+	if (table[HW_FLOW_TABLE_ATTR_MATCHES])
+		flow_table_matches_parse(verbose, true, table[HW_FLOW_TABLE_ATTR_MATCHES]);
+
+	if (verbose)
+		fprintf(stdout, "  actions:\n");
+
+	if (table[HW_FLOW_TABLE_ATTR_ACTIONS]) {
+		rem = nla_len(table[HW_FLOW_TABLE_ATTR_ACTIONS]);
+
+		for (i = nla_data(table[HW_FLOW_TABLE_ATTR_ACTIONS]);
+		     nla_ok(i, rem); i = nla_next(i, &rem)) {
+			struct hw_flow_action *act;
+			int uid = nla_get_u32(i);
+
+			act = &action_names[uid];
+			if (act->uid)
+				pp_action(stdout, true, act);
+		}
+	}
+
 
 	return 0;
 }
 
-static int flow_table_table_parse(struct nlattr *nl)
+static int flow_table_table_parse(int verbose, struct nlattr *nl)
 {
 	struct nlattr *i;
 	int err, rem;
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
-		flow_table_attribs_parse(i);
-	fprintf(stdout, "\n");
+		flow_table_attribs_parse(verbose, i);
+	if (verbose)
+		fprintf(stdout, "\n");
 }
 
 struct nl_cache *link_cache;
 
-static int flow_table_cmd_to_type(int valid, struct nlattr *tb[])
+static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb[])
 {
 	int ifindex, type;
 	char iface[IFNAMSIZ];
@@ -491,7 +559,7 @@ static int flow_table_cmd_to_type(int valid, struct nlattr *tb[])
 	case FLOW_TABLE_IDENTIFIER_IFINDEX:
 		ifindex = nla_get_u32(tb[FLOW_TABLE_IDENTIFIER]);
 		rtnl_link_i2name(link_cache, ifindex, iface, IFNAMSIZ);
-		fprintf(stdout, "%s (%i):\n", iface, ifindex);
+		pfprintf(fp, p, "%s (%i):\n", iface, ifindex);
 		break;
 	default:
 		fprintf(stderr, "Unknown table identifier, abort\n");
@@ -501,11 +569,12 @@ static int flow_table_cmd_to_type(int valid, struct nlattr *tb[])
 	return 0;
 }
 
-static void flow_table_cmd_get_tables(struct flow_msg *msg, int err)
+static void flow_table_cmd_get_tables(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[FLOW_TABLE_MAX+1];
+	int err;
 
 	err = genlmsg_parse(nlh, 0, tb, FLOW_TABLE_MAX, flow_get_tables_policy);
 	if (err < 0) {
@@ -513,11 +582,11 @@ static void flow_table_cmd_get_tables(struct flow_msg *msg, int err)
 		return;
 	}
 
-	if (flow_table_cmd_to_type(FLOW_TABLE_TABLES, tb))
+	if (flow_table_cmd_to_type(stdout, false, FLOW_TABLE_TABLES, tb))
 		return;
 
 	if (tb[FLOW_TABLE_TABLES])
-		flow_table_table_parse(tb[FLOW_TABLE_TABLES]);
+		flow_table_table_parse(verbose, tb[FLOW_TABLE_TABLES]);
 }
 
 static struct nla_policy flow_get_field_policy[HW_FLOW_FIELD_ATTR_MAX+1] = {
@@ -527,7 +596,7 @@ static struct nla_policy flow_get_field_policy[HW_FLOW_FIELD_ATTR_MAX+1] = {
 };
 
 
-static int flow_table_field_parse(int hdr, struct nlattr *nl)
+static int flow_table_field_parse(FILE *fp, bool p, int hdr, struct nlattr *nl)
 {
 	struct nlattr *i;
 	struct nlattr *field[HW_FLOW_FIELD_ATTR_MAX+1];
@@ -552,12 +621,12 @@ static int flow_table_field_parse(int hdr, struct nlattr *nl)
 			nla_get_u32(field[HW_FLOW_FIELD_ATTR_BITWIDTH]) : 0;
 
 		if (bitwidth >= 0)
-			pfprintf(stdout, true, " %s:%i ", /*uid1,*/ fields_names[hdr][uid], bitwidth);
+			pfprintf(fp, p, " %s:%i ", /*uid1,*/ fields_names[hdr][uid], bitwidth);
 		else
-			pfprintf(stdout, true, " %s:* ", /*uid1,*/ fields_names[hdr][uid]);
+			pfprintf(fp, p, " %s:* ", /*uid1,*/ fields_names[hdr][uid]);
 
 		if (!(count % 5))
-			pfprintf(stdout, true, " \n\t");
+			pfprintf(fp, p, " \n\t");
 	}	
 
 	return count;
@@ -573,8 +642,6 @@ static void flow_table_headers_parse(FILE *fp, bool p, struct nlattr *nl)
 {
 	struct nlattr *i;
 	int rem, count;
-
-	pfprintf(fp, p, "\nheaders:\n");
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
@@ -594,7 +661,7 @@ static void flow_table_headers_parse(FILE *fp, bool p, struct nlattr *nl)
 				nla_get_string(hdr[HW_FLOW_HEADER_ATTR_NAME]) : "<none>");
 		pfprintf(fp, p, "  %s {\n\t", headers_names[uid]);
 
-		count = flow_table_field_parse(uid, hdr[HW_FLOW_HEADER_ATTR_FIELDS]);
+		count = flow_table_field_parse(fp, p, uid, hdr[HW_FLOW_HEADER_ATTR_FIELDS]);
 
 		if (count % 5)
 			pfprintf(fp, p, "\n\t");
@@ -604,11 +671,12 @@ static void flow_table_headers_parse(FILE *fp, bool p, struct nlattr *nl)
 }
 
 
-static void flow_table_cmd_get_headers(struct flow_msg *msg, int err)
+static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[FLOW_TABLE_MAX+1];
+	int err;
 
 	err = genlmsg_parse(nlh, 0, tb, FLOW_TABLE_MAX, flow_get_tables_policy);
 	if (err < 0) {
@@ -616,11 +684,99 @@ static void flow_table_cmd_get_headers(struct flow_msg *msg, int err)
 		return;
 	}
 
-	if (flow_table_cmd_to_type(FLOW_TABLE_HEADERS, tb))
+	if (flow_table_cmd_to_type(stdout, false, FLOW_TABLE_HEADERS, tb))
 		return;
 
 	if (tb[FLOW_TABLE_HEADERS])
-		flow_table_headers_parse(stdout, true, tb[FLOW_TABLE_HEADERS]);
+		flow_table_headers_parse(stdout, verbose, tb[FLOW_TABLE_HEADERS]);
+}
+
+static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[FLOW_TABLE_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, FLOW_TABLE_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		return;
+	}
+
+	if (flow_table_cmd_to_type(stdout, false, FLOW_TABLE_ACTIONS, tb))
+		return;
+
+	if (tb[FLOW_TABLE_ACTIONS])
+		flow_table_actions_parse(verbose, tb[FLOW_TABLE_ACTIONS]);
+
+}
+
+static
+struct nla_policy flow_table_flows_policy[FLOW_TABLE_FLOWS_MAX + 1] = {
+	[FLOW_TABLE_FLOWS_TABLE]   = { .type = NLA_U32,},
+	[FLOW_TABLE_FLOWS_MINPRIO] = { .type = NLA_U32,},
+	[FLOW_TABLE_FLOWS_MAXPRIO] = { .type = NLA_U32,},
+	[FLOW_TABLE_FLOWS_FLOWS]   = { .type = NLA_NESTED,},
+};
+
+static
+struct nla_policy flow_table_flow_policy[HW_FLOW_FLOW_ATTR_MAX+1] = {
+	[HW_FLOW_FLOW_ATTR_TABLE]	= { .type = NLA_U32,},
+	[HW_FLOW_FLOW_ATTR_UID]		= { .type = NLA_U32,},
+	[HW_FLOW_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32,},
+	[HW_FLOW_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED,},
+	[HW_FLOW_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED,},
+};
+
+static void flow_table_flows_parse(int verbose, struct nlattr *flows)
+{
+	struct nlattr *f[FLOW_TABLE_FLOWS_MAX+1];
+	struct nlattr *i;
+	int err, rem;
+
+	rem = nla_len(flows);
+	for (i = nla_data(flows);  nla_ok(i, rem); i = nla_next(i, &rem)) {
+		struct nlattr *flow[HW_FLOW_FLOW_ATTR_MAX+1];
+
+		err = nla_parse_nested(flow, HW_FLOW_FLOW_ATTR_MAX, i, flow_table_flow_policy);
+
+		if (flow[HW_FLOW_FLOW_ATTR_TABLE])
+			pfprintf(stdout, true, "table : %i  ", nla_get_u32(flow[HW_FLOW_FLOW_ATTR_TABLE]));
+
+		if (flow[HW_FLOW_FLOW_ATTR_UID])
+			pfprintf(stdout, true, "uid : %i  ", nla_get_u32(flow[HW_FLOW_FLOW_ATTR_UID]));
+
+		if (flow[HW_FLOW_FLOW_ATTR_PRIORITY])
+			pfprintf(stdout, true, "prio : %i\n", nla_get_u32(flow[HW_FLOW_FLOW_ATTR_PRIORITY]));
+
+		if (flow[HW_FLOW_FLOW_ATTR_MATCHES])
+			err = flow_table_matches_parse(verbose, false, flow[HW_FLOW_FLOW_ATTR_MATCHES]);
+
+		if (flow[HW_FLOW_FLOW_ATTR_ACTIONS])
+			flow_table_actions_parse(verbose, flow[HW_FLOW_FLOW_ATTR_ACTIONS]);
+		
+	}
+}
+
+static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[FLOW_TABLE_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, FLOW_TABLE_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		return;
+	}
+
+	if (flow_table_cmd_to_type(stdout, false, FLOW_TABLE_FLOWS, tb))
+		return;
+
+	if (tb[FLOW_TABLE_FLOWS])
+		flow_table_flows_parse(verbose, tb[FLOW_TABLE_FLOWS]);
 }
 
 struct flow_msg *recv_flow_msg(int *err)
@@ -683,7 +839,9 @@ struct flow_msg *recv_flow_msg(int *err)
 	type = glm->cmd;
 	
 	if (type != FLOW_TABLE_CMD_GET_TABLES &&
-	    type != FLOW_TABLE_CMD_GET_HEADERS) {
+	    type != FLOW_TABLE_CMD_GET_HEADERS &&
+	    type != FLOW_TABLE_CMD_GET_ACTIONS &&
+	    type != FLOW_TABLE_CMD_GET_FLOWS) {
 		printf("Received message of unknown type %d\n", 
 			type);
 		free_flow_msg(msg);
@@ -696,12 +854,14 @@ struct flow_msg *recv_flow_msg(int *err)
 static void(*type_cb[FLOW_TABLE_MAX+1])(struct flow_msg *, int err) = {
 	flow_table_cmd_get_tables,
 	flow_table_cmd_get_headers,
+	flow_table_cmd_get_actions,
 	NULL,
 	NULL,
+	flow_table_cmd_get_flows,
 	NULL
 };
 
-void process_rx_message(void)
+void process_rx_message(int verbose)
 {
 	struct flow_msg *msg;
 	int err;
@@ -719,17 +879,17 @@ void process_rx_message(void)
 		struct nlmsghdr *nlh = msg->msg;
 		struct genlmsghdr *glh = nlmsg_data(nlh);
 		type = glh->cmd;
-		type_cb[type](msg, err);
+		type_cb[type](msg, verbose);
 	}
 	return;
 }
 
 void flow_usage()
 {
-	fprintf(stdout, "flow <dev> [get_tables | get_headers]\n");
+	fprintf(stdout, "flow <dev> [get_tables | get_headers | get_actions | get_flows <table>]\n");
 }
 
-int flow_send_recv(int family, int ifindex, int cmd)
+int flow_send_recv(bool verbose, int family, int ifindex, int cmd, int tableid)
 {
 	struct flow_msg *msg;
 
@@ -746,9 +906,21 @@ int flow_send_recv(int family, int ifindex, int cmd)
 	nla_put_u32(msg->nlbuf, FLOW_TABLE_IDENTIFIER_TYPE, FLOW_TABLE_IDENTIFIER_IFINDEX);
 	nla_put_u32(msg->nlbuf, FLOW_TABLE_IDENTIFIER, ifindex);
 
+	if (cmd == FLOW_TABLE_CMD_GET_FLOWS) {
+		struct nlattr *f = nla_nest_start(msg->nlbuf, FLOW_TABLE_FLOWS);
+
+		if (!f) {
+			fprintf(stderr, "Error: get_flows attributes failed\n");
+			return -ENOMSG;
+		}
+
+		nla_put_u32(msg->nlbuf, FLOW_TABLE_FLOWS_TABLE, tableid);
+		nla_nest_end(msg->nlbuf, f);
+	}
+
 	set_ack_cb(msg, handle_flow_table_get_tables);
 	nl_send(nsd, msg->nlbuf);
-	process_rx_message();
+	process_rx_message(verbose);
 
 	return 0;
 }
@@ -759,17 +931,27 @@ int main(int argc, char **argv)
 	struct nl_sock *fd;
 	int cmd = FLOW_TABLE_CMD_GET_TABLES;
 	bool resolve_names = true;
+	int tableid = 0;
 
-	if (argc < 2 || argc > 3) {
+	if (argc < 2 || argc > 4) {
 		flow_usage();
 		return 0;
 	}
 
-	if (argc == 3) {
+	if (argc > 2) {
 		if (strcmp(argv[2], "get_tables") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_TABLES;
 		} else if (strcmp(argv[2], "get_headers") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_HEADERS;
+		} else if (strcmp(argv[2], "get_actions") == 0) {
+			cmd = FLOW_TABLE_CMD_GET_ACTIONS;
+		} else if (strcmp(argv[2], "get_flows") == 0) {
+			cmd = FLOW_TABLE_CMD_GET_FLOWS;
+			if (argc < 4) {
+				flow_usage();
+				return -1;
+			}
+			tableid = atoi(argv[3]);
 		} else {
 			flow_usage();	
 			return 0;
@@ -779,16 +961,17 @@ int main(int argc, char **argv)
 	/* Build cache to translate netdev's to names */
 	fd = nl_socket_alloc();
 	if ((err = nl_connect(fd, NETLINK_ROUTE)) < 0) {
-		nl_perror(err, "Unable to connect socket");
+		nl_perror(err, "Unable to connect socket\n");
 		return err;
 	}
 
 	if ((err = rtnl_link_alloc_cache(fd, AF_UNSPEC, &link_cache)) < 0) {
-		nl_perror(err, "Unable to allocate cache");
+		nl_perror(err, "Unable to allocate cache\n");
 		return err;
 	}
 	if (!(ifindex = rtnl_link_name2i(link_cache, argv[1]))) {
-		fprintf(stderr, "Unable to lookup %s", argv[1]);
+		fprintf(stderr, "Unable to lookup %s\n", argv[1]);
+		flow_usage();
 		return -1;
 	}
 
@@ -807,13 +990,16 @@ int main(int argc, char **argv)
 	nl_close(fd);
 	nl_socket_free(fd);
 
-	if (resolve_names && cmd != FLOW_TABLE_CMD_GET_HEADERS) {
-		err = flow_send_recv(family, ifindex, FLOW_TABLE_CMD_GET_HEADERS);
+	if (resolve_names && cmd == FLOW_TABLE_CMD_GET_TABLES || cmd == FLOW_TABLE_CMD_GET_FLOWS) {
+		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_HEADERS, 0);
+		if (err)
+			goto out;
+		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_ACTIONS, 0);
 		if (err)
 			goto out;
 	}
 
-	flow_send_recv(family, ifindex, cmd);
+	flow_send_recv(true, family, ifindex, cmd, tableid);
 out:
 	nl_close(fd);
 	nl_socket_free(fd);	
