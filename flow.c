@@ -304,7 +304,6 @@ const char *flow_table_arg_type_str[__HW_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 
 static void pp_action(FILE *fp, bool p, struct hw_flow_action *act)
 {
-	int count = sizeof(*act->args) / sizeof(struct hw_flow_action_arg);
 	struct hw_flow_action_arg *arg;
 	int i;
 
@@ -313,7 +312,7 @@ static void pp_action(FILE *fp, bool p, struct hw_flow_action *act)
 	if (!act->args)
 		goto out;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; act->args[i].type; i++) {
 		arg = &act->args[i];
 
 		pfprintf(fp, p, "%s %s ",
@@ -374,7 +373,7 @@ static int nl_to_sw_action(FILE *fp, bool p, struct nlattr *attr)
 	}
 
 	if (!action[HW_FLOW_ACTION_ATTR_SIGNATURE])
-		return 0;
+		goto done;
 
 	signature = action[HW_FLOW_ACTION_ATTR_SIGNATURE];
 	rem = nla_len(signature);
@@ -385,7 +384,7 @@ static int nl_to_sw_action(FILE *fp, bool p, struct nlattr *attr)
 		free(act->args);
 
 	if (count > 0) {
-		act->args = malloc(sizeof(struct hw_flow_action_arg) * count);
+		act->args = calloc(count + 1, sizeof(struct hw_flow_action_arg));
 		if (!act->args)
 			return -ENOMEM;
 	}
@@ -440,6 +439,7 @@ static int nl_to_sw_action(FILE *fp, bool p, struct nlattr *attr)
 		count++;
 	}
 
+done:
 	pp_action(fp, p, act);
 	return 0;
 }
