@@ -217,7 +217,11 @@ struct nla_policy hw_flow_field_ref_policy[HW_FLOW_FIELD_REF_ATTR_MAX + 1] = {
 
 static void pp_flow_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, int last)
 {
-	if (!type) {
+	char b1[16] = ""; /* arbitrary string field for mac */
+	int hi = ref->header;
+	int fi = ref->field;
+
+	if (!ref->type) {
 		if (!ref->header && !ref->field)
 			pfprintf(stdout, p, " <any>");
 		else if (last == hi)
@@ -228,7 +232,7 @@ static void pp_flow_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, i
 			pfprintf(stdout, p, "]\n\t field: %s [%s", headers_names(hi), fields_names(hi, fi));
 	}
 
-	switch (type) {
+	switch (ref->type) {
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		pfprintf(stdout, p, "\t %s.%s = %02x (%02x)\n",
 			headers_names(hi), fields_names(hi, fi), ref->value_u8, ref->mask_u8);
