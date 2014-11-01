@@ -215,12 +215,49 @@ struct nla_policy hw_flow_field_ref_policy[HW_FLOW_FIELD_REF_ATTR_MAX + 1] = {
 	[HW_FLOW_FIELD_REF_ATTR_MASK] = {.type = NLA_UNSPEC, },
 };
 
+static void pp_flow_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, int last)
+{
+	if (!type) {
+		if (!ref->header && !ref->field)
+			pfprintf(stdout, p, " <any>");
+		else if (last == hi)
+			pfprintf(stdout, p, " %s", fields_names(hi, fi));
+		else if (last < 0)
+			pfprintf(stdout, p, "\t field: %s [%s", headers_names(hi), fields_names(hi, fi));
+		else
+			pfprintf(stdout, p, "]\n\t field: %s [%s", headers_names(hi), fields_names(hi, fi));
+	}
+
+	switch (type) {
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U8:
+		pfprintf(stdout, p, "\t %s.%s = %02x (%02x)\n",
+			headers_names(hi), fields_names(hi, fi), ref->value_u8, ref->mask_u8);
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U16:
+		pfprintf(stdout, p, "\t %s.%s = %04x (%04x)\n",
+			headers_names(hi), fields_names(hi, fi), ref->value_u16, ref->mask_u16);
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U32:
+		pfprintf(stdout, p, "\t %s.%s = %08x (%08x)\n",
+			headers_names(hi), fields_names(hi, fi), ref->value_u32, ref->mask_u32);
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U64:
+		pfprintf(stdout, p, "\t %s.%s = %s (%016x)\n",
+			 headers_names(hi), fields_names(hi, fi),
+			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
+			 ref->value_u64, ref->mask_u64);
+		break;
+	default:
+		pfprintf(stdout, p, "\t unknown type\n");
+	}
+}
+
 static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 				 struct hw_flow_field_ref *ref,
 				 struct nlattr *attr)
 {
 	struct nlattr *match[HW_FLOW_FIELD_REF_ATTR_MAX+1];
-	int hi, fi, type, last_id = ref->header;
+	int hi, fi, type, last = ref->header;
 	char b1[64];
 	int err;
 
@@ -236,17 +273,6 @@ static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 		nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_FIELD]) : 0;
 	type = match[HW_FLOW_FIELD_REF_ATTR_TYPE] ?
 		nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_TYPE]) : 0;
-
-	if (!type) {
-		if (!hi && !fi)
-			pfprintf(stdout, p, " <any>");
-		else if (last_id == hi)
-			pfprintf(stdout, p, " %s", fields_names(hi, fi));
-		else if (last_id < 0)
-			pfprintf(stdout, p, "\t field: %s [%s", headers_names(hi), fields_names(hi, fi));
-		else
-			pfprintf(stdout, p, "]\n\t field: %s [%s", headers_names(hi), fields_names(hi, fi));
-	}
 #if 0
 	else if ... (* use unique ids if no strings *)
 #endif
@@ -263,34 +289,25 @@ static int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		ref->value_u8 = nla_get_u8(match[HW_FLOW_FIELD_REF_ATTR_VALUE]);
 		ref->mask_u8 = nla_get_u8(match[HW_FLOW_FIELD_REF_ATTR_MASK]);
-		pfprintf(stdout, p, "\t %s.%s = %02x (%02x)\n",
-			headers_names(hi), fields_names(hi, fi), ref->value_u8, ref->mask_u8);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		ref->value_u16 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u16(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u16 = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u16(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, "\t %s.%s = %04x (%04x)\n",
-			headers_names(hi), fields_names(hi, fi), ref->value_u16, ref->mask_u16);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		ref->value_u32 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u32   = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u32(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, "\t %s.%s = %08x (%08x)\n",
-			headers_names(hi), fields_names(hi, fi), ref->value_u32, ref->mask_u32);
 		break;
 	case HW_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		ref->value_u64 = match[HW_FLOW_FIELD_REF_ATTR_VALUE] ? nla_get_u64(match[HW_FLOW_FIELD_REF_ATTR_VALUE]) : 0;
 		ref->mask_u64   = match[HW_FLOW_FIELD_REF_ATTR_MASK] ? nla_get_u64(match[HW_FLOW_FIELD_REF_ATTR_MASK]) : 0;
-		pfprintf(stdout, p, "\t %s.%s = %s (%016x)\n",
-			 headers_names(hi), fields_names(hi, fi),
-			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
-			 ref->value_u64, ref->mask_u64);
 		break;
 	break;
 		default:
 		type = 0;
 	}
 
+	pp_flow_field_ref(fp, p, ref, last);
 	return 0;
 }
 
