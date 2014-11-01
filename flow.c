@@ -114,7 +114,7 @@ static void pfprintf(FILE *fp, bool p, const char *format, ...)
 	va_end(args);
 }
 
-struct flow_msg *alloc_flow_msg(uint32_t type, uint16_t flags, size_t size, int family)
+struct flow_msg *alloc_flow_msg(uint32_t type, uint32_t pid, uint16_t flags, size_t size, int family)
 {
 	struct flow_msg *msg;
 	static uint32_t seq = 0;
@@ -124,7 +124,7 @@ struct flow_msg *alloc_flow_msg(uint32_t type, uint16_t flags, size_t size, int 
 		return NULL;
 
 	msg->nlbuf = nlmsg_alloc();
-	msg->msg = genlmsg_put(msg->nlbuf, 0, seq, family, size, flags, type, 1);
+	msg->msg = genlmsg_put(msg->nlbuf, pid, seq, family, size, flags, type, 1);
 
 	msg->ack_cb = NULL;
 	msg->seq = seq++;
@@ -1124,7 +1124,7 @@ int find_match(char *header, char *field, int *hi, int *li)
 	return -EINVAL;
 }
 
-int flow_set_send(bool verbose, int family, int ifindex, int argc, char **argv)
+int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	struct nlattr *deprecated_flows, *flows, *flow;
 	struct flow_msg *msg;
@@ -1255,7 +1255,7 @@ int flow_set_send(bool verbose, int family, int ifindex, int argc, char **argv)
 	nsd = nl_socket_alloc();
 	nl_connect(nsd, NETLINK_GENERIC);
 
-	msg = alloc_flow_msg(cmd, NLM_F_REQUEST|NLM_F_ACK, 0, family);
+	msg = alloc_flow_msg(cmd, pid, NLM_F_REQUEST|NLM_F_ACK, 0, family);
 	if (!msg) {
 		fprintf(stderr, "Error: Allocation failure\n");
 		return -ENOMSG;
@@ -1350,7 +1350,7 @@ int flow_set_send(bool verbose, int family, int ifindex, int argc, char **argv)
 	return 0;
 }
 
-int flow_send_recv(bool verbose, int family, int ifindex, int cmd, int tableid)
+int flow_send_recv(bool verbose, int pid, int family, int ifindex, int cmd, int tableid)
 {
 	struct flow_msg *msg;
 
@@ -1358,7 +1358,7 @@ int flow_send_recv(bool verbose, int family, int ifindex, int cmd, int tableid)
 	nsd = nl_socket_alloc();
 	nl_connect(nsd, NETLINK_GENERIC);
 
-	msg = alloc_flow_msg(cmd, NLM_F_REQUEST|NLM_F_ACK, 0, family);
+	msg = alloc_flow_msg(cmd, pid, NLM_F_REQUEST|NLM_F_ACK, 0, family);
 	if (!msg) {
 		fprintf(stderr, "Error: Allocation failure\n");
 		return -ENOMSG;
@@ -1388,15 +1388,27 @@ int flow_send_recv(bool verbose, int family, int ifindex, int cmd, int tableid)
 
 int main(int argc, char **argv)
 {
-	int family, err, ifindex;
-	struct nl_sock *fd;
 	int cmd = FLOW_TABLE_CMD_GET_TABLES;
+	int family, err, ifindex, pid = 0;
 	bool resolve_names = true;
+	struct nl_sock *fd;
 	int tableid = 0;
+	int opt;
 
 	if (argc < 2) {
 		flow_usage();
 		return 0;
+	}
+
+	while ((opt = getopt(argc, argv, "ph:")) != -1) {
+		switch (opt) {
+		case 'h':
+			flow_usage();
+			exit(-1);
+		case 'p':
+			pid = atoi(optarg);
+			break;
+		}
 	}
 
 	if (argc > 2) {
@@ -1458,23 +1470,23 @@ int main(int argc, char **argv)
 	nl_socket_free(fd);
 
 	if (resolve_names) {
-		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_HEADERS, 0);
+		err = flow_send_recv(false, pid, family, ifindex, FLOW_TABLE_CMD_GET_HEADERS, 0);
 		if (err)
 			goto out;
-		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_ACTIONS, 0);
+		err = flow_send_recv(false, pid, family, ifindex, FLOW_TABLE_CMD_GET_ACTIONS, 0);
 		if (err)
 			goto out;
-		err = flow_send_recv(false, family, ifindex, FLOW_TABLE_CMD_GET_TABLES, 0);
+		err = flow_send_recv(false, pid, family, ifindex, FLOW_TABLE_CMD_GET_TABLES, 0);
 		if (err)
 			goto out;
 	}
 
 	switch (cmd) {
 	case FLOW_TABLE_CMD_SET_FLOWS:
-		flow_set_send(true, family, ifindex, argc, argv);
+		flow_set_send(true, pid, family, ifindex, argc, argv);
 		break;
 	default:
-		flow_send_recv(true, family, ifindex, cmd, tableid);
+		flow_send_recv(true, pid, family, ifindex, cmd, tableid);
 		break;
 	}
 out:
