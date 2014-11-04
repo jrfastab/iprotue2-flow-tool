@@ -273,7 +273,7 @@ const char *flow_table_arg_type_str[__HW_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 	"u64",
 };
 
-static void pp_action(FILE *fp, bool p, struct hw_flow_action *act)
+void pp_action(FILE *fp, bool p, struct hw_flow_action *act)
 {
 	struct hw_flow_action_arg *arg;
 	int i;
@@ -312,7 +312,7 @@ out:
 	pfprintf(fp, p, " )\n");
 }
 
-static void pp_table(FILE *fp, int p, struct hw_flow_table *table)
+void pp_table(FILE *fp, int p, struct hw_flow_table *table)
 {
 	int i, last = -1;
 	bool brace = false;
@@ -340,7 +340,7 @@ static void pp_table(FILE *fp, int p, struct hw_flow_table *table)
 
 }
 
-static void pp_header(FILE *fp, bool p, struct hw_flow_header *header)
+void pp_header(FILE *fp, bool p, struct hw_flow_header *header)
 {
 	struct hw_flow_field *f;
 	int i = 0;
@@ -364,7 +364,13 @@ static void pp_header(FILE *fp, bool p, struct hw_flow_header *header)
 	pfprintf(fp, p, " }\n");
 }
 
-static void pp_flows(FILE *fp, bool print, struct hw_flow_flow *flows)
+void pp_flow(FILE *fp, bool print, struct hw_flow_flow *flow)
+{
+	pfprintf(fp, print, "pp_flow TBD\n");
+}
+
+
+void pp_flows(FILE *fp, bool print, struct hw_flow_flow *flows)
 {
 	int i;
 
@@ -699,12 +705,11 @@ out:
 	return err;
 }
 
-int nl_to_flows(FILE *fp, bool print, struct nlattr *attr)
+int nl_to_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow **flows)
 {
-	struct nlattr *f[FLOW_TABLE_FLOWS_MAX+1];
 	struct hw_flow_field_ref *matches;
 	struct hw_flow_action *actions;
-	struct hw_flow_flow *flows;
+	struct hw_flow_flow  *f;
 	struct nlattr *i;
 	int err, rem, count = 0;;
 
@@ -712,7 +717,7 @@ int nl_to_flows(FILE *fp, bool print, struct nlattr *attr)
 	for (i = nla_data(attr);  nla_ok(i, rem); i = nla_next(i, &rem)) 
 		count++;
 
-	flows = calloc(count + 1, sizeof(struct hw_flow_flow));
+	f = calloc(count + 1, sizeof(struct hw_flow_flow));
 
 	
 	rem = nla_len(attr);
@@ -723,13 +728,13 @@ int nl_to_flows(FILE *fp, bool print, struct nlattr *attr)
 		err = nla_parse_nested(flow, HW_FLOW_FLOW_ATTR_MAX, i, flow_table_flow_policy);
 
 		if (flow[HW_FLOW_FLOW_ATTR_TABLE])
-			flows[count].table_id = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_TABLE]);
+			f[count].table_id = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_TABLE]);
 
 		if (flow[HW_FLOW_FLOW_ATTR_UID])
-			flows[count].uid = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_UID]);
+			f[count].uid = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_UID]);
 
 		if (flow[HW_FLOW_FLOW_ATTR_PRIORITY])
-			flows[count].priority = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_PRIORITY]);
+			f[count].priority = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_PRIORITY]);
 
 		if (flow[HW_FLOW_FLOW_ATTR_MATCHES])
 			err = nl_to_matches(false, false,
@@ -738,11 +743,15 @@ int nl_to_flows(FILE *fp, bool print, struct nlattr *attr)
 		if (flow[HW_FLOW_FLOW_ATTR_ACTIONS])
 			nl_to_actions(fp, print, flow[HW_FLOW_FLOW_ATTR_ACTIONS], &actions);
 		
-		flows[count].matches = matches;
-		flows[count].actions = actions;
+		f[count].matches = matches;
+		f[count].actions = actions;
 	}
 
-	pp_flows(fp, print, flows);
+	pp_flows(fp, print, f);
+	if (flows)
+		*flows = f;
+	else
+		free(f);
 	return 0;
 }
 
@@ -817,5 +826,325 @@ int nl_to_hw_headers(FILE *fp, bool p, struct nlattr *nl)
 		headers[header->uid] = header;
 		pp_header(fp, p, header);
 	}
+	return 0;
+}
+
+static int flow_put_action_args(struct nl_msg *nlbuf, struct hw_flow_action_arg *args, int argcnt)
+{
+	struct nlattr *arg;
+	int i;
+
+	for (i = 0; i < argcnt; i++) {
+		struct hw_flow_action_arg *this = &args[i];
+
+		arg = nla_nest_start(nlbuf, HW_FLOW_ACTION_ARG);
+		if (!arg)
+			return -EMSGSIZE;
+
+		if (this->type == HW_FLOW_ACTION_ARG_TYPE_NULL)
+			goto next_arg;
+
+		if (this->name &&
+		    nla_put_string(nlbuf, HW_FLOW_ACTION_ARG_NAME, this->name))
+			return -EMSGSIZE;
+
+		if (nla_put_u32(nlbuf, HW_FLOW_ACTION_ARG_TYPE, this->type))
+			return -EMSGSIZE;
+
+		switch (this->type) {
+		case HW_FLOW_ACTION_ARG_TYPE_U8:
+			if (nla_put_u8(nlbuf,
+				       HW_FLOW_ACTION_ARG_VALUE, this->value_u8))
+				return -EMSGSIZE;
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_U16:
+			if (nla_put_u16(nlbuf,
+					HW_FLOW_ACTION_ARG_VALUE, this->value_u16))
+				return -EMSGSIZE;
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_U32:
+			if (nla_put_u32(nlbuf,
+					HW_FLOW_ACTION_ARG_VALUE, this->value_u32))
+				return -EMSGSIZE;
+			break;
+		case HW_FLOW_ACTION_ARG_TYPE_U64:
+			if (nla_put_u64(nlbuf,
+					HW_FLOW_ACTION_ARG_VALUE, this->value_u64))
+				return -EMSGSIZE;
+			break;
+		default:
+			break;
+		}
+next_arg:
+		nla_nest_end(nlbuf, arg);
+	}
+
+	return 0;
+}
+
+static int flow_put_action(struct nl_msg *nlbuf, struct hw_flow_action *ref)
+{
+	struct hw_flow_action_arg *this;
+	struct nlattr *nest;
+	int err, args = 0;
+
+	if (nla_put_string(nlbuf, HW_FLOW_ACTION_ATTR_NAME, ref->name) ||
+	    nla_put_u32(nlbuf, HW_FLOW_ACTION_ATTR_UID, ref->uid))
+		return -EMSGSIZE;
+
+	for (this = &ref->args[0]; strlen(this->name) > 0; this++)
+		args++;
+
+	if (args) {
+		nest = nla_nest_start(nlbuf, HW_FLOW_ACTION_ATTR_SIGNATURE);
+		if (!nest)
+			return -EMSGSIZE;
+
+		err = flow_put_action_args(nlbuf, ref->args, args);
+		if (err)
+			return err;
+		nla_nest_end(nlbuf, nest);
+	}
+
+	return 0;
+}
+
+int flow_put_actions(struct nl_msg *nlbuf, struct hw_flow_actions *ref)
+{
+	struct hw_flow_action **a;
+	struct hw_flow_action *this;
+	struct nlattr *actions;
+	int err;
+
+	actions = nla_nest_start(nlbuf, FLOW_TABLE_ACTIONS);
+	if (!actions)
+		return -EMSGSIZE;
+		
+	for (a = ref->actions, this = *a; strlen(this->name) > 0; a++, this = *a) {
+		struct nlattr *action = nla_nest_start(nlbuf, HW_FLOW_ACTION);
+
+		if (!action)
+			return -EMSGSIZE;
+
+		err = flow_put_action(nlbuf, this);
+		if (err)
+			return -EMSGSIZE;
+		nla_nest_end(nlbuf, action);
+	}
+	nla_nest_end(nlbuf, actions);
+
+	return 0;
+}
+
+static int flow_put_fields(struct nl_msg *nlbuf, struct hw_flow_header *ref)
+{
+	struct nlattr *field;
+	int count = ref->field_sz;
+	struct hw_flow_field *f;
+
+	for (f = ref->fields; count; count--, f++) {
+		field = nla_nest_start(nlbuf, HW_FLOW_FIELD);
+		if (!field)
+			return -EMSGSIZE;
+
+		if (nla_put_string(nlbuf, HW_FLOW_FIELD_ATTR_NAME, f->name) ||
+		    nla_put_u32(nlbuf, HW_FLOW_FIELD_ATTR_UID, f->uid) ||
+		    nla_put_u32(nlbuf, HW_FLOW_FIELD_ATTR_BITWIDTH, f->bitwidth))
+			return -EMSGSIZE;
+
+		nla_nest_end(nlbuf, field);
+	}
+
+	return 0;
+}
+
+int flow_put_headers(struct nl_msg *nlbuf, struct hw_flow_headers *ref)
+{
+	struct nlattr *nest, *hdr, *fields;
+	struct hw_flow_header *this, **h;
+	int err;
+
+	nest = nla_nest_start(nlbuf, FLOW_TABLE_HEADERS);
+	if (!nest)
+		return -EMSGSIZE;
+		
+	for (h = ref->hw_flow_headers, this = *h; strlen(this->name) > 0; h++, this = *h) {
+		hdr = nla_nest_start(nlbuf, HW_FLOW_HEADER);
+		if (!hdr)
+			return -EMSGSIZE;
+
+		if (nla_put_string(nlbuf, HW_FLOW_HEADER_ATTR_NAME, this->name) ||
+		    nla_put_u32(nlbuf, HW_FLOW_HEADER_ATTR_UID, this->uid))
+			return -EMSGSIZE;
+
+		fields = nla_nest_start(nlbuf, HW_FLOW_HEADER_ATTR_FIELDS);
+		if (!fields)
+			return -EMSGSIZE;
+
+		err = flow_put_fields(nlbuf, this);
+		if (err)
+			return err;
+
+		nla_nest_end(nlbuf, fields);
+		nla_nest_end(nlbuf, hdr);
+	}
+	nla_nest_end(nlbuf, nest);
+
+	return 0;
+}
+
+int flow_put_flows(struct nl_msg *nlbuf, struct hw_flow_flow *ref)
+{
+	struct nlattr *flows, *matches, *field;
+	struct nlattr *actions = NULL;
+	int err, j, i = 0;
+
+	flows = nla_nest_start(nlbuf, HW_FLOW_FLOW);
+	if (!flows)
+		return -EMSGSIZE;
+
+	if (nla_put_u32(nlbuf, HW_FLOW_FLOW_ATTR_TABLE, ref->table_id) ||
+	    nla_put_u32(nlbuf, HW_FLOW_FLOW_ATTR_UID, ref->uid) ||
+	    nla_put_u32(nlbuf, HW_FLOW_FLOW_ATTR_PRIORITY, ref->priority))
+		return -EMSGSIZE;
+
+#if 0
+	matches = nla_nest_start(nlbuf, HW_FLOW_FLOW_ATTR_MATCHES);
+	if (!matches)
+		return -EMSGSIZE;
+
+	for (j = 0; j < mcnt; j++) {
+		struct hw_flow_field_ref *f = &ref->matches[j];
+
+		if (!f->header)
+			continue;
+
+		field = nla_nest_start(nlbuf, HW_FLOW_FIELD_REF);
+		if (!field || flow_put_field_ref(nlbuf, f))
+			return -EMSGSIZE;
+		nla_nest_end(nlbuf, field);
+	}
+	nla_nest_end(nlbuf, matches);
+
+	actions = nla_nest_start(nlbuf, HW_FLOW_FLOW_ATTR_ACTIONS);
+	if (!actions)
+		return -EMSGSIZE;
+
+	for (i = 0; i < acnt; i++) {
+		err = flow_put_action(nlbuf, &ref->actions[i], args);
+		if (err)
+			return -EMSGSIZE;
+	}
+
+	nla_nest_end(nlbuf, actions);
+#endif
+	nla_nest_end(nlbuf, flows);
+	return 0;
+}
+
+static int flow_put_field_ref(struct nl_msg *nlbuf, struct hw_flow_field_ref *ref)
+{
+	if (nla_put_u32(nlbuf, HW_FLOW_FIELD_REF_ATTR_HEADER, ref->header) ||
+	    nla_put_u32(nlbuf, HW_FLOW_FIELD_REF_ATTR_FIELD, ref->field)   ||
+	    nla_put_u32(nlbuf, HW_FLOW_FIELD_REF_ATTR_TYPE, ref->type))
+		return -EMSGSIZE;
+
+	switch (ref->type) {
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U8:
+		if (nla_put_u8(nlbuf,
+			       HW_FLOW_FIELD_REF_ATTR_VALUE, ref->value_u8) ||
+		    nla_put_u8(nlbuf,
+			       HW_FLOW_FIELD_REF_ATTR_MASK, ref->mask_u8))
+			return -EMSGSIZE;
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U16:
+		if (nla_put_u16(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_VALUE, ref->value_u16) ||
+		    nla_put_u16(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_MASK, ref->mask_u16))
+			return -EMSGSIZE;
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U32:
+		if (nla_put_u32(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_VALUE, ref->value_u32) ||
+		    nla_put_u32(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_MASK, ref->mask_u32))
+			return -EMSGSIZE;
+		break;
+	case HW_FLOW_FIELD_REF_ATTR_TYPE_U64:
+		if (nla_put_u64(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_VALUE, ref->value_u64) ||
+		    nla_put_u64(nlbuf,
+				HW_FLOW_FIELD_REF_ATTR_MASK, ref->mask_u64))
+			return -EMSGSIZE;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int flow_put_table(struct nl_msg *nlbuf, struct hw_flow_table *ref)
+{
+	struct nlattr *matches, *flow, *actions;
+	struct hw_flow_field_ref *m;
+	hw_flow_action_ref *aref;
+	int err;
+
+	flow = NULL; /* must null to get unwind correct */
+
+	if (nla_put_string(nlbuf, HW_FLOW_TABLE_ATTR_NAME, ref->name) ||
+	    nla_put_u32(nlbuf, HW_FLOW_TABLE_ATTR_UID, ref->uid) ||
+	    nla_put_u32(nlbuf, HW_FLOW_TABLE_ATTR_SOURCE, ref->source) ||
+	    nla_put_u32(nlbuf, HW_FLOW_TABLE_ATTR_SIZE, ref->size))
+		return -EMSGSIZE;
+
+	matches = nla_nest_start(nlbuf, HW_FLOW_TABLE_ATTR_MATCHES);
+	if (!matches)
+		return -EMSGSIZE;
+
+	for (m = ref->matches; m->header || m->field; m++) {
+		struct nlattr *match = nla_nest_start(nlbuf, HW_FLOW_FIELD_REF);
+
+		if (!match)
+			return -EMSGSIZE;
+
+		err = flow_put_field_ref(nlbuf, m);
+		if (err)
+			return -EMSGSIZE;
+		nla_nest_end(nlbuf, match);
+	}
+	nla_nest_end(nlbuf, matches);
+
+	actions = nla_nest_start(nlbuf, HW_FLOW_TABLE_ATTR_ACTIONS);
+	if (!actions)
+		return -EMSGSIZE;
+
+	for (aref = ref->actions; *aref; aref++) {
+		if (nla_put_u32(nlbuf, HW_FLOW_ACTION_ATTR_UID, *aref))
+			return -EMSGSIZE;
+	}
+	nla_nest_end(nlbuf, actions);
+	return 0;
+}
+
+int flow_put_tables(struct nl_msg *nlbuf, struct hw_flow_tables *ref)
+{
+	struct nlattr *nest, *t;
+	int i, err = 0;
+
+	nest = nla_nest_start(nlbuf, FLOW_TABLE_TABLES);
+	if (!nest)
+		return -EMSGSIZE;
+
+	for (i = 0; i < ref->table_sz; i++) {
+		t = nla_nest_start(nlbuf, HW_FLOW_TABLE);
+		err = flow_put_table(nlbuf, &ref->tables[i]);
+		if (err)
+			return err;
+		nla_nest_end(nlbuf, t);
+	}
+	nla_nest_end(nlbuf, nest);
 	return 0;
 }

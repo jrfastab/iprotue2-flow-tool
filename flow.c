@@ -33,6 +33,7 @@
 #include <sys/queue.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include <getopt.h>
 
@@ -85,11 +86,20 @@ struct flow_msg *alloc_flow_msg(uint32_t type, uint32_t pid, uint16_t flags, siz
 		return NULL;
 
 	msg->nlbuf = nlmsg_alloc();
-	msg->msg = genlmsg_put(msg->nlbuf, pid, seq, family, size, flags, type, 1);
-
+	msg->msg = genlmsg_put(msg->nlbuf, 0, seq, family, size, flags, type, 1);
 	msg->ack_cb = NULL;
 	msg->seq = seq++;
 
+	if (pid) {
+		struct nl_msg *nl_msg = msg->nlbuf;
+		struct sockaddr_nl nladdr = {
+			.nl_family = AF_NETLINK,
+			.nl_pid = pid,
+			.nl_groups = 0,
+		};
+
+		nlmsg_set_dst(nl_msg, &nladdr);
+	}
 	return msg;
 }
 
@@ -405,7 +415,7 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[FLOW_TABLE_FLOWS])
-		nl_to_flows(stdout, verbose, tb[FLOW_TABLE_FLOWS]);
+		nl_to_flows(stdout, verbose, tb[FLOW_TABLE_FLOWS], NULL);
 }
 
 static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
@@ -533,6 +543,7 @@ void process_rx_message(int verbose)
 void flow_usage()
 {
 	fprintf(stdout, "flow <dev> [get_tables | get_headers | get_actions | get_flows <table> | get_graph]\n");
+	fprintf(stdout, "           [set_flow ]\n");
 }
 
 
@@ -610,7 +621,7 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 					break;
 				}
 			}
-		} else if (strcmp(*argv, "prio") == 0) {
+		} else if (strcmp(*argv, "prio") == -1) {
 			NEXT_ARG();
 			prio = atoi(*argv);
 		} else if (strcmp(*argv, "handle") == 0) {
@@ -799,7 +810,7 @@ int flow_send_recv(bool verbose, int pid, int family, int ifindex, int cmd, int 
 	}
 
 	set_ack_cb(msg, handle_flow_table_get_tables);
-	nl_send(nsd, msg->nlbuf);
+	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
 	return 0;
@@ -813,42 +824,44 @@ int main(int argc, char **argv)
 	struct nl_sock *fd;
 	int tableid = 0;
 	int opt;
+	int args = 2;
 
 	if (argc < 2) {
 		flow_usage();
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "ph:")) != -1) {
+	while ((opt = getopt(argc, argv, "p:h")) != -1) {
 		switch (opt) {
 		case 'h':
 			flow_usage();
 			exit(-1);
 		case 'p':
 			pid = atoi(optarg);
+			args+=2;
 			break;
 		}
 	}
 
 	if (argc > 2) {
-		if (strcmp(argv[2], "get_tables") == 0) {
+		if (strcmp(argv[args], "get_tables") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_TABLES;
-		} else if (strcmp(argv[2], "get_headers") == 0) {
+		} else if (strcmp(argv[args], "get_headers") == 0) {
 			resolve_names = false;
 			cmd = FLOW_TABLE_CMD_GET_HEADERS;
-		} else if (strcmp(argv[2], "get_actions") == 0) {
+		} else if (strcmp(argv[args], "get_actions") == 0) {
 			resolve_names = false;
 			cmd = FLOW_TABLE_CMD_GET_ACTIONS;
-		} else if (strcmp(argv[2], "get_graph") == 0) {
+		} else if (strcmp(argv[args], "get_graph") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_TABLE_GRAPH;
-		} else if (strcmp(argv[2], "get_flows") == 0) {
+		} else if (strcmp(argv[args], "get_flows") == 0) {
 			cmd = FLOW_TABLE_CMD_GET_FLOWS;
 			if (argc < 4) {
 				flow_usage();
 				return -1;
 			}
-			tableid = atoi(argv[3]);
-		} else if (strcmp(argv[2], "set_flow") == 0) {
+			tableid = atoi(argv[args+1]);
+		} else if (strcmp(argv[args], "set_flow") == 0) {
 			cmd = FLOW_TABLE_CMD_SET_FLOWS;
 		} else {
 			flow_usage();	
@@ -867,8 +880,8 @@ int main(int argc, char **argv)
 		nl_perror(err, "Unable to allocate cache\n");
 		return err;
 	}
-	if (!(ifindex = rtnl_link_name2i(link_cache, argv[1]))) {
-		fprintf(stderr, "Unable to lookup %s\n", argv[1]);
+	if (!(ifindex = rtnl_link_name2i(link_cache, argv[args-1]))) {
+		fprintf(stderr, "Unable to lookup %s\n", argv[args-1]);
 		flow_usage();
 		return -1;
 	}
