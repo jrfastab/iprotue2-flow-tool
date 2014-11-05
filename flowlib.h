@@ -23,15 +23,15 @@
 
 *******************************************************************************/
 
-int nl_to_hw_flow_field_ref(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref *ref);
-int nl_to_matches(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref **ref);
-int nl_to_sw_action(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_action **a);
-int nl_to_actions(FILE  *fp, bool print, struct nlattr *nl, struct hw_flow_action **actions);
-int nl_to_hw_headers(FILE *fp, bool print, struct nlattr *nl);
-int nl_to_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow **f);
-int nl_to_flow_table(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_table *t);
-int nl_to_flow_tables(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_table **t);
-int nl_to_flow_table_field(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_header *hdr);
+int flow_get_field(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref *ref);
+int flow_get_matches(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref **ref);
+int flow_get_action(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_action **a);
+int flow_get_actions(FILE  *fp, bool print, struct nlattr *nl, struct hw_flow_action **actions);
+int flow_get_headers(FILE *fp, bool print, struct nlattr *nl);
+int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow **f);
+int flow_get_table(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_table *t);
+int flow_get_tables(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_table **t);
+int flow_get_table_field(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_header *hdr);
 
 int flow_put_field(struct nl_msg *nlbuf, struct hw_flow_field_ref *ref);
 int flow_put_matches(struct nl_msg *nlbuf, struct hw_flow_field_ref *ref);

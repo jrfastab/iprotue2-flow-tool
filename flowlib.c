@@ -407,9 +407,7 @@ void pp_flows(FILE *fp, bool print, struct hw_flow_flow *flows)
 		pp_flow(fp, print, &flows[i]);
 }
 
-int nl_to_hw_flow_field_ref(FILE *fp, bool p,
-			    struct nlattr *nl,
-			    struct hw_flow_field_ref *ref)
+int flow_get_field(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_field_ref *ref)
 {
 	struct nlattr *match[HW_FLOW_FIELD_REF_ATTR_MAX+1];
 	int hi, fi, type, last = ref->header;
@@ -466,7 +464,7 @@ int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 	return 0;
 }
 
-int nl_to_sw_action(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_action **a)
+int flow_get_action(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_action **a)
 {
 	int rem;
 	struct nlattr *signature, *l;
@@ -577,7 +575,7 @@ done:
 	return 0;
 }
 
-int nl_to_matches(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref **ref)
+int flow_get_matches(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_ref **ref)
 {
 	struct hw_flow_field_ref *r;
 	struct nlattr *i;
@@ -593,7 +591,7 @@ int nl_to_matches(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_field_
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl), cnt = 0; nla_ok(i, rem); i = nla_next(i, &rem), cnt++) {
-		err = nl_to_hw_flow_field_ref(fp, print, i, &r[cnt]);
+		err = flow_get_field(fp, print, i, &r[cnt]);
 		if (err)
 			goto out;
 	}
@@ -606,7 +604,7 @@ out:
 	return err;
 }
 
-int nl_to_actions(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_action **actions)
+int flow_get_actions(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_action **actions)
 {
 	struct hw_flow_action **acts;
 	int err, rem, j = 0;
@@ -622,7 +620,7 @@ int nl_to_actions(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_action
 
 	rem = nla_len(nl);
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem), j++) 
-		nl_to_sw_action(fp, print, i, &acts[j]);
+		flow_get_action(fp, print, i, &acts[j]);
 
 	if (actions)
 		actions = &acts[0];
@@ -633,8 +631,8 @@ int nl_to_actions(FILE *fp, bool print, struct nlattr *nl, struct hw_flow_action
 }
 
 
-int nl_to_flow_table(FILE *fp, bool print, struct nlattr *nl,
-		     struct hw_flow_table *t)
+int flow_get_table(FILE *fp, bool print, struct nlattr *nl,
+		   struct hw_flow_table *t)
 {
 	struct nlattr *table[HW_FLOW_TABLE_ATTR_MAX+1];
 	struct nlattr *i;
@@ -656,7 +654,7 @@ int nl_to_flow_table(FILE *fp, bool print, struct nlattr *nl,
 	size = table[HW_FLOW_TABLE_ATTR_SIZE] ? nla_get_u32(table[HW_FLOW_TABLE_ATTR_SIZE]) : 0;
 
 	if (table[HW_FLOW_TABLE_ATTR_MATCHES])
-		nl_to_matches(fp, print, table[HW_FLOW_TABLE_ATTR_MATCHES], &matches);
+		flow_get_matches(fp, print, table[HW_FLOW_TABLE_ATTR_MATCHES], &matches);
 
 	if (table[HW_FLOW_TABLE_ATTR_ACTIONS]) {
 		rem = nla_len(table[HW_FLOW_TABLE_ATTR_ACTIONS]);
@@ -692,7 +690,7 @@ out:
 	return -ENOMEM;
 }
 
-int nl_to_flow_tables(FILE *fp, bool print, struct nlattr *nl,
+int flow_get_tables(FILE *fp, bool print, struct nlattr *nl,
 		      struct hw_flow_table **t)
 {
 	struct hw_flow_table *tables;
@@ -709,7 +707,7 @@ int nl_to_flow_tables(FILE *fp, bool print, struct nlattr *nl,
 
 	rem = nla_len(nl);
 	for (cnt = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem), cnt++) {
-		err = nl_to_flow_table(fp, print, i, &tables[cnt]);
+		err = flow_get_table(fp, print, i, &tables[cnt]);
 		if (err)
 			goto out;
 	}
@@ -728,7 +726,7 @@ out:
 	return err;
 }
 
-int nl_to_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow **flows)
+int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow **flows)
 {
 	struct hw_flow_field_ref *matches;
 	struct hw_flow_action *actions;
@@ -760,11 +758,11 @@ int nl_to_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow *
 			f[count].priority = nla_get_u32(flow[HW_FLOW_FLOW_ATTR_PRIORITY]);
 
 		if (flow[HW_FLOW_FLOW_ATTR_MATCHES])
-			err = nl_to_matches(false, false,
+			err = flow_get_matches(false, false,
 					    flow[HW_FLOW_FLOW_ATTR_MATCHES], &matches);
 
 		if (flow[HW_FLOW_FLOW_ATTR_ACTIONS])
-			nl_to_actions(fp, print, flow[HW_FLOW_FLOW_ATTR_ACTIONS], &actions);
+			flow_get_actions(fp, print, flow[HW_FLOW_FLOW_ATTR_ACTIONS], &actions);
 		
 		f[count].matches = matches;
 		f[count].actions = actions;
@@ -778,7 +776,7 @@ int nl_to_flows(FILE *fp, bool print, struct nlattr *attr, struct hw_flow_flow *
 	return 0;
 }
 
-int nl_to_flow_table_field(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_header *hdr)
+int flow_get_table_field(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_header *hdr)
 {
 	struct nlattr *i;
 	struct nlattr *field[HW_FLOW_FIELD_ATTR_MAX+1];
@@ -815,7 +813,7 @@ int nl_to_flow_table_field(FILE *fp, bool p, struct nlattr *nl, struct hw_flow_h
 	return count;
 }
 
-int nl_to_hw_headers(FILE *fp, bool p, struct nlattr *nl)
+int flow_get_headers(FILE *fp, bool p, struct nlattr *nl)
 {
 	struct nlattr *i;
 	int rem;
@@ -845,7 +843,7 @@ int nl_to_hw_headers(FILE *fp, bool p, struct nlattr *nl)
 			strdup(hdr[HW_FLOW_HEADER_ATTR_NAME] ?
 				nla_get_string(hdr[HW_FLOW_HEADER_ATTR_NAME]) : ""), IFNAMSIZ - 1);
 
-		nl_to_flow_table_field(fp, p, hdr[HW_FLOW_HEADER_ATTR_FIELDS], header);
+		flow_get_table_field(fp, p, hdr[HW_FLOW_HEADER_ATTR_FIELDS], header);
 		headers[header->uid] = header;
 		pp_header(fp, p, header);
 	}

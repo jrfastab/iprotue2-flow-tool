@@ -221,7 +221,7 @@ static void flow_table_cmd_get_tables(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[FLOW_TABLE_TABLES])
-		nl_to_flow_tables(stdout, verbose, tb[FLOW_TABLE_TABLES], NULL);
+		flow_get_tables(stdout, verbose, tb[FLOW_TABLE_TABLES], NULL);
 }
 
 static struct nla_policy flow_get_field_policy[HW_FLOW_FIELD_ATTR_MAX+1] = {
@@ -253,7 +253,7 @@ static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[FLOW_TABLE_HEADERS])
-		nl_to_hw_headers(stdout, verbose, tb[FLOW_TABLE_HEADERS]);
+		flow_get_headers(stdout, verbose, tb[FLOW_TABLE_HEADERS]);
 }
 
 static struct nla_policy flow_get_jump_policy[HW_FLOW_JUMP_TABLE_MAX+1] = {
@@ -290,7 +290,7 @@ static int flow_table_tbl_graph_jump(FILE *fp, bool p, struct nlattr *nl)
 		else
 			pfprintf(fp, p, "\n\t to node %i when", node);
 
-		nl_to_hw_flow_field_ref(stdout, p, jump[HW_FLOW_JUMP_TABLE_FIELD], &ref);
+		flow_get_field(stdout, p, jump[HW_FLOW_JUMP_TABLE_FIELD], &ref);
 	}
 }
 
@@ -353,7 +353,7 @@ static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[FLOW_TABLE_ACTIONS])
-		nl_to_actions(stdout, verbose, tb[FLOW_TABLE_ACTIONS], NULL);
+		flow_get_actions(stdout, verbose, tb[FLOW_TABLE_ACTIONS], NULL);
 }
 
 static void flow_table_cmd_get_parse_graph(struct flow_msg *msg, int verbose)
@@ -415,7 +415,7 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[FLOW_TABLE_FLOWS])
-		nl_to_flows(stdout, verbose, tb[FLOW_TABLE_FLOWS], NULL);
+		flow_get_flows(stdout, verbose, tb[FLOW_TABLE_FLOWS], NULL);
 }
 
 static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
