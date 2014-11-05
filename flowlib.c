@@ -224,7 +224,7 @@ static struct nla_policy flow_get_header_policy[HW_FLOW_FIELD_ATTR_MAX+1] = {
 	[HW_FLOW_HEADER_ATTR_FIELDS]	= { .type = NLA_NESTED },
 };
 
-static void pp_flow_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, int last)
+static void pp_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, int last)
 {
 	char b1[16] = ""; /* arbitrary string field for mac */
 	int hi = ref->header;
@@ -263,6 +263,21 @@ static void pp_flow_field_ref(FILE *fp, bool p, struct hw_flow_field_ref *ref, i
 	default:
 		break;
 	}
+}
+
+void pp_fields(FILE *fp, bool print, struct hw_flow_field_ref *ref)
+{
+	bool brace = false;
+	int i, last;
+
+	for (i = 0; ref[i].header; i++) {
+		pp_field_ref(fp, print, &ref[i], last);
+		last = ref[i].header;
+		brace = true;
+	}
+
+	if (brace)
+		pfprintf(fp, print, "]\n");
 }
 
 const char *flow_table_arg_type_str[__HW_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
@@ -312,6 +327,14 @@ out:
 	pfprintf(fp, p, " )\n");
 }
 
+void pp_actions(FILE *fp, bool p, struct hw_flow_action *actions)
+{
+	int i;
+
+	for (i = 0; actions[i].uid; i++)
+		pp_action(fp, p, &actions[i]);
+}
+
 void pp_table(FILE *fp, int p, struct hw_flow_table *table)
 {
 	int i, last = -1;
@@ -321,15 +344,11 @@ void pp_table(FILE *fp, int p, struct hw_flow_table *table)
 		 table->name, table->uid, table->source, table->size);
 
 	pfprintf(fp, p, "  matches:\n");
-	for (i = 0; table->matches[i].header; i++) {
-		pp_flow_field_ref(fp, p, &table->matches[i], last);
-		last = table->matches[i].header;
-		brace = true;
-	}
-	if (p && brace)
-		fprintf(stdout, "]\n");
+	if (table->matches)
+		pp_fields(fp, p, table->matches);
 
 	pfprintf(fp, p, "  actions:\n");
+	if (table->actions)
 	
 	for (i = 0; table->actions[i]; i++) {
 		struct hw_flow_action *act = actions[table->actions[i]];
@@ -366,7 +385,14 @@ void pp_header(FILE *fp, bool p, struct hw_flow_header *header)
 
 void pp_flow(FILE *fp, bool print, struct hw_flow_flow *flow)
 {
-	pfprintf(fp, print, "pp_flow TBD\n");
+	pfprintf(fp, true, "table : %i  ", flow->table_id);
+	pfprintf(fp, true, "uid : %i  ", flow->uid);
+	pfprintf(fp, true, "prio : %i\n", flow->priority);
+
+	if (flow->matches)
+		pp_fields(fp, print, flow->matches);	
+	if (flow->actions)
+		pp_actions(fp, print, flow->actions);	
 }
 
 
@@ -377,11 +403,8 @@ void pp_flows(FILE *fp, bool print, struct hw_flow_flow *flows)
 	if (!print)
 		return;
 
-	for (i = 0; flows[i].uid; i++) {
-		pfprintf(fp, true, "table : %i  ", flows[i].table_id);
-		pfprintf(fp, true, "uid : %i  ", flows[i].uid);
-		pfprintf(fp, true, "prio : %i\n", flows[i].priority);
-	}
+	for (i = 0; flows[i].uid; i++)
+		pp_flow(fp, print, &flows[i]);
 }
 
 int nl_to_hw_flow_field_ref(FILE *fp, bool p,
@@ -439,7 +462,7 @@ int nl_to_hw_flow_field_ref(FILE *fp, bool p,
 		type = 0;
 	}
 
-	pp_flow_field_ref(fp, p, ref, last);
+	pp_field_ref(fp, p, ref, last);
 	return 0;
 }
 
