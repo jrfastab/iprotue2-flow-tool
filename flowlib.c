@@ -102,7 +102,7 @@ int find_action(char *name)
 	int i;
 
 	for (i = 0; i < MAX_ACTIONS; i++) {
-		if (strcmp(action_names(i), name) == 0) {
+		if (actions[i] && strcmp(action_names(i), name) == 0) {
 			return i;
 		}
 	}

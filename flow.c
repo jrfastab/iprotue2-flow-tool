@@ -593,6 +593,7 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 			/* TBD mask support */
 		} else if (strcmp(*argv, "action") == 0) {
 			NEXT_ARG();
+
 			i = find_action(*argv);
 			if (i < 0) {
 				printf("Unknown action\n");
