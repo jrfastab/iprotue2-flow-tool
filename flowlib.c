@@ -1169,3 +1169,55 @@ int flow_put_tables(struct nl_msg *nlbuf, struct hw_flow_tables *ref)
 	nla_nest_end(nlbuf, nest);
 	return 0;
 }
+
+int flow_put_table_graph(struct nl_msg *nlbuf, struct hw_table_graph_nodes *ref)
+{
+	struct nlattr *nodes, *node, *jump, *jump_node, *field;
+	struct hw_table_graph_node **n;
+	int err, i = 0;
+
+	nodes = nla_nest_start(nlbuf, FLOW_TABLE_TABLE_GRAPH);
+	if (!nodes)
+		return -EMSGSIZE;
+
+	for (n = ref->nodes, i = 0; n[i]->uid; i++) {
+		struct hw_flow_jump_table *j;
+
+		node = nla_nest_start(nlbuf, HW_TABLE_GRAPH_NODE);
+		if (!node)
+			return -EMSGSIZE;
+
+		if (nla_put_u32(nlbuf, HW_TABLE_GRAPH_NODE_UID, n[i]->uid))
+			return -EMSGSIZE;
+
+		jump = nla_nest_start(nlbuf, HW_TABLE_GRAPH_NODE_JUMP);
+		if (!jump)
+			return -EMSGSIZE;
+
+		for (j = &n[i]->jump[0]; j->node; j++) {
+			jump_node = nla_nest_start(nlbuf, HW_FLOW_JUMP_TABLE_ENTRY);
+			if (!jump_node)
+				return -EMSGSIZE;
+
+			if (nla_put_u32(nlbuf, HW_FLOW_JUMP_TABLE_NODE, j->node)) {
+				fprintf(stderr, "table graph node failed. aborting\n");
+				return -EMSGSIZE;
+			}
+
+			field = nla_nest_start(nlbuf, HW_FLOW_JUMP_TABLE_FIELD);
+			err = flow_put_field_ref(nlbuf, &j->field);
+			if (err) {
+				fprintf(stderr, "table graph field ref failed. aborting\n");
+				return -EMSGSIZE;
+			}
+			nla_nest_end(nlbuf, field);
+			nla_nest_end(nlbuf, jump_node);
+		}
+
+		nla_nest_end(nlbuf, jump);
+		nla_nest_end(nlbuf, node);
+	}
+
+	nla_nest_end(nlbuf, nodes);
+	return 0;
+}
