@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <getopt.h>
 
@@ -318,7 +319,7 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 
 	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
 	if (err < 0) {
-		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		fprintf(stderr, "Warning unable to parse get flows msg\n");
 		return;
 	}
 
@@ -336,13 +337,73 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
-	fprintf(stdout, "received set flow reply\n");
+	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse set flows msg\n");
+		return;
+	}
+	fprintf(stderr, "debug cmd set flow returned\n");
+}
+
+static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[NET_FLOW_MAX+1];
+	int err;
 
 	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
 	if (err < 0) {
-		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		fprintf(stderr, "Warning unable to parse del flows msg\n");
 		return;
 	}
+
+	fprintf(stderr, "delete flow cmd not supported\n");
+}
+
+static void flow_table_cmd_update_flows(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[NET_FLOW_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse update tables msg\n");
+		return;
+	}
+	fprintf(stderr, "update flow cmd not supported\n");
+}
+
+static void flow_table_cmd_create_table(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[NET_FLOW_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse create table msg\n");
+		return;
+	}
+}
+
+static void flow_table_cmd_destroy_table(struct flow_msg *msg, int verbose)
+{
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct nlattr *tb[NET_FLOW_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse destroy table msg\n");
+		return;
+	}
+
+	fprintf(stderr, "destroy table cmd not supported\n");
 }
 
 struct flow_msg *recv_flow_msg(int *err)
@@ -357,6 +418,7 @@ struct flow_msg *recv_flow_msg(int *err)
 	*err = 0;
 
 	do {
+		printf("%s: waiting for reply\n", __func__);
 		rc = nl_recv(nsd, &nla, &buf, NULL);
 		if (rc < 0) {	
 			switch (errno) {
@@ -372,6 +434,7 @@ struct flow_msg *recv_flow_msg(int *err)
 				break;
 			}
 		}
+		printf("%s: hurray a reply %i\n", __func__, rc);
 	} while (rc == 0);
 
 	msg = wrap_netlink_msg((struct nlmsghdr *)buf);
@@ -418,7 +481,7 @@ struct flow_msg *recv_flow_msg(int *err)
 	return msg;	
 }
 
-static void(*type_cb[NET_FLOW_MAX+1])(struct flow_msg *, int err) = {
+static void(*type_cb[NET_FLOW_CMD_MAX+1])(struct flow_msg *, int err) = {
 	flow_table_cmd_get_tables,
 	flow_table_cmd_get_headers,
 	flow_table_cmd_get_actions,
@@ -426,6 +489,10 @@ static void(*type_cb[NET_FLOW_MAX+1])(struct flow_msg *, int err) = {
 	flow_table_cmd_get_table_graph,
 	flow_table_cmd_get_flows,
 	flow_table_cmd_set_flows,
+	flow_table_cmd_del_flows,
+	flow_table_cmd_update_flows,
+	flow_table_cmd_create_table,
+	flow_table_cmd_destroy_table,
 };
 
 void process_rx_message(int verbose)
@@ -465,134 +532,210 @@ void set_flow_usage()
 
 #define NEXT_ARG() do { argv++; if (--argc <= 0) break; } while(0)
 
-int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+int get_match_arg(int argc, char **argv, bool need_value,
+		  struct net_flow_field_ref *match)
 {
-	struct nlattr *flows, *flow;
+	char *strings, *s_hdr, *s_fld, *endptr;
+	struct net_flow_field *field;
+	int advance = 0, err;
+
+	NEXT_ARG();
+	strings = *argv;
+	advance++;
+
+	s_hdr = strtok(strings, ".");
+	if (!s_hdr)
+		return -EINVAL;
+
+	s_fld = strtok(NULL, ".");
+	if (!s_fld)
+		return -EINVAL;
+
+	err = find_match(s_hdr, s_fld, &match->header, &match->field);
+	if (err < 0)
+		return -EINVAL;
+			
+	field = get_fields(match->header, match->field);
+	if (!field)
+		return -EINVAL;
+
+	if (!need_value)
+		return advance;
+
+	NEXT_ARG();
+	if (field->bitwidth < 8) { /* TBD we need a type field */
+		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
+		err = sscanf(*argv, "%" PRIu8 "", &match->value_u8);
+	} else if (field->bitwidth < 16) {
+		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
+		err = sscanf(*argv, "%" PRIu16 "", &match->value_u16);
+	} else if (field->bitwidth < 32) {
+		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
+		err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
+	} else if (field->bitwidth < 64) {
+		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
+		match->value_u64 = strtoll(*argv, &endptr, 0);
+	}
+	advance++;
+
+	if (err)
+		return err;
+
+	/* TBD mask */
+	return advance;
+}
+
+int get_action_arg(int argc, char **argv, bool need_args,
+		   struct net_flow_action *action)
+{
+	struct net_flow_action *a;
+	int i, reqs_args = 0;
+	int advance = 0;
+	char *endptr;
+
+	NEXT_ARG();
+	advance++;
+
+	i = find_action(*argv);
+	if (i < 0) {
+		fprintf(stderr, "Warning unknown action\n");
+		return -EINVAL;
+	}
+
+	a = get_actions(i);
+	for (i = 0; a->args && a->args[i].type; i++)
+		reqs_args++;
+
+	strncpy(action->name, a->name, IFNAMSIZ - 1);
+	action->uid = a->uid;
+	if (!reqs_args || !need_args)
+		goto done;
+
+	action->args = calloc(reqs_args + 1, sizeof(struct net_flow_action_arg));
+
+	for (i = 0; i <= reqs_args; i++) {
+		strncpy(action->args[i].name, a->args[i].name, IFNAMSIZ);
+		action->args[i].type = a->args[i].type;
+
+		if (a->args[i].type) {
+			NEXT_ARG();
+			advance++;
+		}
+
+		switch (a->args[i].type) {
+		case NET_FLOW_ACTION_ARG_TYPE_U8:
+			action->args[i].value_u8 = 0;
+			break;
+		case NET_FLOW_ACTION_ARG_TYPE_U16:
+			action->args[i].value_u16 = 0;
+			break;
+		case NET_FLOW_ACTION_ARG_TYPE_U32:
+			action->args[i].value_u32 = atoi(*argv); 
+			break;
+		case NET_FLOW_ACTION_ARG_TYPE_U64:
+			action->args[i].value_u64 = strtol(*argv, &endptr, 10);
+			break;
+		}
+	}
+
+done:
+	return advance;
+}
+
+#define MAX_MATCHES	10
+#define MAX_ACTIONS	10
+
+static void set_table_usage()
+{
+}
+
+int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+{
+	struct nlattr *nest, *nest1;
+	struct net_flow_field_ref matches[MAX_MATCHES];
+	net_flow_action_ref acts[MAX_ACTIONS];
+	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
 	int c, i, digit_optind = 0;
-	int cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
-	int table, prio, uid, err = 0;
-	int hdr_uid, field_uid;
-	char *endptr;
-	struct net_flow_field_ref *m = NULL;
-	struct net_flow_action *a = NULL;
-	struct net_flow_action_arg *args;
-	struct net_flow_header *h;
-	struct net_flow_field *f;
-	struct net_flow_field_ref ref;
-	unsigned long int match_value;
-	struct nlattr *field, *matches, *actions, *action, *signatures, *signature;
+	int err = 0, advance = 0;
+	int cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
+	struct net_flow_table table;
 
-	table = prio = uid = 0;
+	memset(&table, 0, sizeof(table));
+	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_ACTIONS);
+	memset(acts, 0, sizeof(struct net_flow_action) * MAX_ACTIONS);
+	table.matches = &matches[0];
+	table.actions = &acts[0];
 
 	opterr = 0;
 	while (argc > 0) {
 		if (strcmp(*argv, "match") == 0) {
-			char *strings, *hdr, *field;
-
-			NEXT_ARG();
-			strings = *argv;
-
-			hdr = strtok(strings, ".");
-			field = strtok(NULL, ".");
-
-			find_match(hdr, field, &hdr_uid, &field_uid);
-			h = get_headers(hdr_uid);
-			f = get_fields(hdr_uid, field_uid);
-
-			NEXT_ARG();
-			match_value = strtoul(*argv, &endptr, 0);
-			/* TBD mask support */
-		} else if (strcmp(*argv, "action") == 0) {
-			NEXT_ARG();
-
-			i = find_action(*argv);
-			if (i < 0) {
-				printf("Unknown action\n");
-				set_flow_usage();
-				exit(-1);
-			}
-
-			a = get_actions(i);
-			args = a->args;
-			for (i = 0; a->args && a->args[i].type; i++) {
-				struct net_flow_action_arg *arg = &a->args[i];
-
+			advance = get_match_arg(argc, argv, false, &matches[match_count]);
+			if (advance < 0)
+				break;
+			match_count++;
+			for (; advance; advance--)
 				NEXT_ARG();
-				switch (arg->type) {
-				case NET_FLOW_ACTION_ARG_TYPE_U8:
-					arg->value_u8 = 0;
-					break;
-				case NET_FLOW_ACTION_ARG_TYPE_U16:
-					arg->value_u16 = 0;
-					break;
-				case NET_FLOW_ACTION_ARG_TYPE_U32:
-					arg->value_u32 = atoi(*argv); 
-					break;
-				case NET_FLOW_ACTION_ARG_TYPE_U64:
-					arg->value_u64 = strtol(*argv, &endptr, 10);
-					break;
-				}
-			}
-		} else if (strcmp(*argv, "prio") == -1) {
+		} else if (strcmp(*argv, "action") == 0) {
+			struct net_flow_action a;
+
+			advance = get_action_arg(argc, argv, false, &a);
+			if (advance < 0)
+				break;
+			acts[action_count] = a.uid;
+			action_count++;
+			for (; advance; advance--)
+				NEXT_ARG();
+		} else if (strcmp(*argv, "name") == 0) {
 			NEXT_ARG();
-			prio = atoi(*argv);
-		} else if (strcmp(*argv, "handle") == 0) {
+			strncpy(table.name, *argv, IFNAMSIZ - 1);
+		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
-			uid = atoi(*argv);
-		} else if (strcmp(*argv, "table") == 0) {
+			table.source = atoi(*argv);
+		} else if (strcmp(*argv, "id") == 0) {
 			NEXT_ARG();
-			table = atoi(*argv);
+			table.uid = atoi(*argv);	
+		} else if (strcmp(*argv, "size") == 0) {
+			NEXT_ARG();
+			table.size = atoi(*argv);
 		}
 		argc--; argv++;
 	}
 
 	if (err) {
 		printf("Invalid argument\n");
-		set_flow_usage();
+		set_table_usage();
 		exit(-1);
 	}
 
-	if (!table) {
-		fprintf(stderr, "Table ID requried\n");	
-		set_flow_usage();
+	if (!table.uid)
+		table.uid = get_table_id();
+
+	if (!table.size) {
+		fprintf(stderr, "Missing table <size> specifier.\n");
+		set_table_usage();
 		exit(-1);
 	}
 
-	if (!prio)
-		prio = 1;
-
-	if (!uid)
-		uid = 10;	
-
-	if (!a) {
-		fprintf(stderr, "Missing action list\n");
-		set_flow_usage();
+	if (!table.source) {
+		fprintf(stderr, "Missing table <source> specifier.\n");
+		set_table_usage();
 		exit(-1);
 	}
 
-	printf("prio %i uid %i table %i\n", prio, uid, table);
-	printf("  match: %s.%s %lu\n", h->name, f->name, match_value);
-	printf("  action: %s ", a->name);
-	for (i = 0; a->args && a->args[i].type; i++) {
-		struct net_flow_action_arg *arg = &a->args[i];
-
-		switch (arg->type) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			arg->value_u8 = 0;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			arg->value_u16 = 0;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			printf("%s %i ", arg->name, arg->value_u32);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			printf("%s %lu ", arg->name, arg->value_u64);
-			break;
-		}
+	if (!table.matches[0].header) {
+		fprintf(stderr, "Table has NULL <match> specifier. Aborting this doesn't appear useful\n");
+		set_table_usage();
+		exit(-1);
 	}
-	printf("\n");
+
+	if (!table.actions[0]) {
+		fprintf(stderr, "Table has NULL <action> specifier. Aborting this doesn't appear useful\n");
+		set_table_usage();
+		exit(-1);
+	}
+
+	pp_table(stdout, true, &table);
 
 	/* open generic netlink socke twith flow table api */
 	nsd = nl_socket_alloc();
@@ -604,58 +747,116 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 		return -ENOMSG;
 	}
 
-	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX);
-	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex);
-
-	/* Add flows */ /* TBD error checking */
-	flows = nla_nest_start(msg->nlbuf, NET_FLOW_FLOWS);
-	flow = nla_nest_start(msg->nlbuf, NET_FLOW_FLOW);
-
-	nla_put_u32(msg->nlbuf, NET_FLOW_ATTR_TABLE, table);
-	nla_put_u32(msg->nlbuf, NET_FLOW_ATTR_UID, uid);
-	nla_put_u32(msg->nlbuf, NET_FLOW_ATTR_PRIORITY, prio);
-
-	matches = nla_nest_start(msg->nlbuf, NET_FLOW_ATTR_MATCHES);
-	field = nla_nest_start(msg->nlbuf, NET_FLOW_FIELD_REF);
-	
-	ref.header = h->uid;
-	ref.field = f->uid;
-
-	if (f->bitwidth <= 8) {
-		ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
-		ref.value_u8 = match_value;
-		ref.mask_u8 = -1;
-	} else if (f->bitwidth <= 16) {
-		ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
-		ref.value_u16 = match_value;
-		ref.mask_u16 = -1;
-	} else if (f->bitwidth <= 32) {
-		ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
-		ref.value_u32 = match_value;
-		ref.mask_u32 = -1;
-	} else if (f->bitwidth <= 64) {
-		ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
-		ref.value_u64 = match_value;
-		ref.mask_u64 = -1;
-	} else {
-		printf("Warning greater than 64 bitwidth fields are not supported\n");
-		return -EINVAL;
+	if (nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex)) {
+		fprintf(stderr, "Error: Identifier put failed\n");
+		return -EMSGSIZE;
 	}
 
-	flow_put_field_ref(msg->nlbuf, &ref);
+	nest = nla_nest_start(msg->nlbuf, NET_FLOW_TABLES);
+	if (!nest)
+		return -EMSGSIZE;
+	nest1 = nla_nest_start(msg->nlbuf, NET_FLOW_TABLE);
+	flow_put_table(msg->nlbuf, &table);
+	nla_nest_end(msg->nlbuf, nest1);
+	nla_nest_end(msg->nlbuf, nest);
 
-	nla_nest_end(msg->nlbuf, field);
-	nla_nest_end(msg->nlbuf, matches);
+	set_ack_cb(msg, handle_flow_table_get_tables);
+	nl_send(nsd, msg->nlbuf);
+	process_rx_message(verbose);
 
-	actions = nla_nest_start(msg->nlbuf, NET_FLOW_ATTR_ACTIONS);
-	action = nla_nest_start(msg->nlbuf, NET_FLOW_ACTION);
+	return 0;
+}
 
-	flow_put_action(msg->nlbuf, a);
+int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+{
+	struct nlattr *actions, *action, *signatures, *signature;
+	struct net_flow_field_ref matches[MAX_MATCHES];
+	struct net_flow_action acts[MAX_ACTIONS];
+	int match_count = 0, action_count = 0;
+	struct flow_msg *msg;
+	int c, i, digit_optind = 0;
+	int advance = 0;
+	int cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
+	int err = 0;
+	struct net_flow_flow flow;
+	struct nlattr *flows;
 
-	nla_nest_end(msg->nlbuf, action);
-	nla_nest_end(msg->nlbuf, actions);
+	memset(&flow, 0, sizeof(flow));
+	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_ACTIONS);
+	memset(acts, 0, sizeof(struct net_flow_action) * MAX_ACTIONS);
+	flow.matches = &matches[0];
+	flow.actions = &acts[0];
 
-	nla_nest_end(msg->nlbuf, flow);
+	opterr = 0;
+	while (argc > 0) {
+		if (strcmp(*argv, "match") == 0) {
+			advance = get_match_arg(argc, argv, true, &matches[match_count]);
+			if (advance < 0)
+				break;
+			match_count++;
+			for (; advance; advance--)
+				NEXT_ARG();
+		} else if (strcmp(*argv, "action") == 0) {
+			advance = get_action_arg(argc, argv, true, &acts[action_count]);
+			if (advance < 0)
+				break;
+			action_count++;
+			for (; advance; advance--)
+				NEXT_ARG();
+		} else if (strcmp(*argv, "prio") == 0) {
+			NEXT_ARG();
+			flow.priority = atoi(*argv);
+		} else if (strcmp(*argv, "handle") == 0) {
+			NEXT_ARG();
+			flow.uid = atoi(*argv);
+		} else if (strcmp(*argv, "table") == 0) {
+			NEXT_ARG();
+			flow.table_id = atoi(*argv);
+		}
+		argc--; argv++;
+	}
+
+	if (err) {
+		printf("Invalid argument\n");
+		set_flow_usage();
+		exit(-1);
+	}
+
+	if (!flow.table_id) {
+		fprintf(stderr, "Table ID requried\n");	
+		set_flow_usage();
+		exit(-1);
+	}
+
+	if (!flow.priority)
+		flow.priority = 1;
+
+	if (!flow.uid)
+		flow.uid = 10;	
+
+	pp_flow(stdout, true, &flow);
+
+	/* open generic netlink socke twith flow table api */
+	nsd = nl_socket_alloc();
+	nl_connect(nsd, NETLINK_GENERIC);
+
+	msg = alloc_flow_msg(cmd, pid, NLM_F_REQUEST|NLM_F_ACK, 0, family);
+	if (!msg) {
+		fprintf(stderr, "Error: Allocation failure\n");
+		return -ENOMSG;
+	}
+
+	if (nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex)) {
+		fprintf(stderr, "Error: Identifier put failed\n");
+		return -EMSGSIZE;
+	}
+
+	flows = nla_nest_start(msg->nlbuf, NET_FLOW_FLOWS);
+	if (!flows)
+		return -EMSGSIZE;
+	flow_put_flow(msg->nlbuf, &flow);
 	nla_nest_end(msg->nlbuf, flows);
 
 	set_ack_cb(msg, handle_flow_table_get_tables);
@@ -748,6 +949,8 @@ int main(int argc, char **argv)
 			tableid = atoi(argv[args+1]);
 		} else if (strcmp(argv[args], "set_flow") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
+		} else if (strcmp(argv[args], "create") == 0) {
+			cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
 		} else {
 			flow_usage();	
 			return 0;
@@ -786,6 +989,7 @@ int main(int argc, char **argv)
 	nl_close(fd);
 	nl_socket_free(fd);
 
+	printf("%s: pid %d\n", __func__, pid);
 	if (resolve_names) {
 		err = flow_send_recv(false, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS, 0);
 		if (err)
@@ -801,6 +1005,9 @@ int main(int argc, char **argv)
 	switch (cmd) {
 	case NET_FLOW_TABLE_CMD_SET_FLOWS:
 		flow_set_send(true, pid, family, ifindex, argc, argv);
+		break;
+	case NET_FLOW_TABLE_CMD_CREATE_TABLE:
+		flow_create_tbl_send(true, pid, family, ifindex, argc, argv);
 		break;
 	default:
 		flow_send_recv(true, pid, family, ifindex, cmd, tableid);
