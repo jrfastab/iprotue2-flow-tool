@@ -650,34 +650,7 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 	actions = nla_nest_start(msg->nlbuf, NET_FLOW_ATTR_ACTIONS);
 	action = nla_nest_start(msg->nlbuf, NET_FLOW_ACTION);
 
-	nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ATTR_UID, a->uid);
-	signatures = nla_nest_start(msg->nlbuf, NET_FLOW_ACTION_ATTR_SIGNATURE);
-
-	for (i = 0; a->args && a->args[i].type; i++) {
-		struct net_flow_action_arg *arg = &a->args[i];
-
-		signature = nla_nest_start(msg->nlbuf, NET_FLOW_ACTION_ARG);
-
-		nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ARG_TYPE, arg->type);
-		switch (arg->type) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ARG_VALUE, arg->value_u8);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ARG_VALUE, arg->value_u16);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ARG_VALUE, arg->value_u32);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			nla_put_u32(msg->nlbuf, NET_FLOW_ACTION_ARG_VALUE, arg->value_u64);
-			break;
-		default:
-			break;
-		}
-		nla_nest_end(msg->nlbuf, signature);
-	}
-	nla_nest_end(msg->nlbuf, signatures);
+	flow_put_action(msg->nlbuf, a);
 
 	nla_nest_end(msg->nlbuf, action);
 	nla_nest_end(msg->nlbuf, actions);

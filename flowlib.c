@@ -190,11 +190,6 @@ struct nla_policy net_flow_action_policy[NET_FLOW_ACTION_ATTR_MAX + 1] = {
 	[NET_FLOW_ACTION_ATTR_UID]	= {.type = NLA_U32 },
 	[NET_FLOW_ACTION_ATTR_SIGNATURE] = {.type = NLA_NESTED },
 };
-struct nla_policy net_flow_action_arg_policy[NET_FLOW_ACTION_ARG_TYPE_MAX + 1] = {
-	[NET_FLOW_ACTION_ARG_NAME] = {.type = NLA_STRING, .maxlen = IFNAMSIZ-1 },
-	[NET_FLOW_ACTION_ARG_TYPE] = {.type = NLA_U32 },
-	[NET_FLOW_ACTION_ARG_VALUE] = {.type = NLA_UNSPEC, },
-};
 
 static struct nla_policy flow_get_field_policy[NET_FLOW_FIELD_ATTR_MAX+1] = {
 	[NET_FLOW_FIELD_ATTR_NAME]	= { .type = NLA_STRING },
@@ -532,49 +527,8 @@ int flow_get_action(FILE *fp, bool p, struct nlattr *nl, struct net_flow_action 
 
 	rem = nla_len(signature);
 	for (l = nla_data(signature); nla_ok(l, rem); l = nla_next(l, &rem)) {
-		struct nlattr *arg[NET_FLOW_ACTION_ARG_TYPE_MAX+1];
-		const char *argname;
-		__u64 vu64;
-		__u32 vu32;
-		__u16 vu16;
-		__u8 vu8;
-		int t;
-
-		err = nla_parse_nested(arg, NET_FLOW_ACTION_ARG_TYPE_MAX, l, net_flow_action_arg_policy);
-		if (err) {
-			fprintf(stdout, "Warning parse error parsing action arguments\n");
-			return -EINVAL;
-		}
-
-		argname = arg[NET_FLOW_ACTION_ARG_NAME] ?
-			  nla_get_string(arg[NET_FLOW_ACTION_ARG_NAME]) : "";
-		t = arg[NET_FLOW_ACTION_ARG_TYPE] ? nla_get_u32(arg[NET_FLOW_ACTION_ARG_TYPE]) : 0;
-
-		strncpy(act->args[count].name, argname, IFNAMSIZ);
-		act->args[count].type = t;
-
-		switch (t) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			vu8 = nla_get_u8(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			act->args[count].value_u8 = vu8;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			vu16 = nla_get_u16(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			act->args[count].value_u16 = vu16;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			vu32 = nla_get_u32(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			act->args[count].value_u32 = vu32;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			vu64 = nla_get_u64(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			act->args[count].value_u64 = vu64;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_NULL:
-		default:
-			break;
-		}
-
+		/* TBD verify attr type */
+		act->args[count] = *(struct net_flow_action_arg *)nla_data(l);
 		count++;
 	}
 
@@ -955,78 +909,41 @@ int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_tabl
 	return 0;
 }
 
-static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg *args, int argcnt)
+static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg *args)
 {
+	struct net_flow_action_arg *this;
 	struct nlattr *arg;
-	int i;
+	int i, err, cnt = 0;
 
-	for (i = 0; i < argcnt; i++) {
-		struct net_flow_action_arg *this = &args[i];
+	for (this = &args[0]; strlen(this->name) > 0; this++)
+		cnt++;
 
-		arg = nla_nest_start(nlbuf, NET_FLOW_ACTION_ARG);
-		if (!arg)
+	for (i = 0; i < cnt; i++) {
+		err = nla_put(nlbuf, NET_FLOW_ACTION_ARG, sizeof(args[i]), &args[i]);
+		if (err)
 			return -EMSGSIZE;
-
-		if (this->type == NET_FLOW_ACTION_ARG_TYPE_NULL)
-			goto next_arg;
-
-		if (this->name &&
-		    nla_put_string(nlbuf, NET_FLOW_ACTION_ARG_NAME, this->name))
-			return -EMSGSIZE;
-
-		if (nla_put_u32(nlbuf, NET_FLOW_ACTION_ARG_TYPE, this->type))
-			return -EMSGSIZE;
-
-		switch (this->type) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			if (nla_put_u8(nlbuf,
-				       NET_FLOW_ACTION_ARG_VALUE, this->value_u8))
-				return -EMSGSIZE;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			if (nla_put_u16(nlbuf,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u16))
-				return -EMSGSIZE;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			if (nla_put_u32(nlbuf,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u32))
-				return -EMSGSIZE;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			if (nla_put_u64(nlbuf,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u64))
-				return -EMSGSIZE;
-			break;
-		default:
-			break;
-		}
-next_arg:
-		nla_nest_end(nlbuf, arg);
 	}
 
 	return 0;
 }
 
-static int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref)
+int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref)
 {
 	struct net_flow_action_arg *this;
 	struct nlattr *nest;
-	int err, args = 0;
+	int err;
 
 	if (nla_put_string(nlbuf, NET_FLOW_ACTION_ATTR_NAME, ref->name) ||
 	    nla_put_u32(nlbuf, NET_FLOW_ACTION_ATTR_UID, ref->uid))
 		return -EMSGSIZE;
 
-	for (this = &ref->args[0]; strlen(this->name) > 0; this++)
-		args++;
 
-	if (args) {
+	if (ref->args) {
 		nest = nla_nest_start(nlbuf, NET_FLOW_ACTION_ATTR_SIGNATURE);
 		if (!nest)
 			return -EMSGSIZE;
 
-		err = flow_put_action_args(nlbuf, ref->args, args);
+		err = flow_put_action_args(nlbuf, ref->args);
 		if (err)
 			return err;
 		nla_nest_end(nlbuf, nest);
