@@ -223,6 +223,8 @@ static void pfprintf(FILE *fp, bool p, const char *format, ...)
 	va_end(args);
 }
 
+/* Top level parsing handled in applications */
+#if 0
 static struct nla_policy flow_get_tables_policy[NET_FLOW_MAX+1] = {
 	[NET_FLOW_IDENTIFIER_TYPE]	= { .type = NLA_U32 },
 	[NET_FLOW_IDENTIFIER]		= { .type = NLA_U32 },
@@ -233,6 +235,7 @@ static struct nla_policy flow_get_tables_policy[NET_FLOW_MAX+1] = {
 	[NET_FLOW_TABLE_GRAPH]		= { .type = NLA_NESTED },
 	[NET_FLOW_FLOWS]		= { .type = NLA_NESTED },
 };
+#endif
 
 struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 	[NET_FLOW_TABLE_ATTR_NAME]	= { .type = NLA_STRING,
@@ -400,8 +403,7 @@ void pp_actions(FILE *fp, bool p, struct net_flow_action *actions)
 
 void pp_table(FILE *fp, int p, struct net_flow_table *table)
 {
-	int i, last = -1;
-	bool brace = false;
+	int i;
 
 	pfprintf(fp, p, "\n%s:%i src %i size %i\n",
 		 table->name, table->uid, table->source, table->size);
@@ -500,11 +502,12 @@ static int flow_compar_graph_nodes(const void *a, const void *b)
 		return 0;
 	else if (t_a->source > t_b->source)
 		return 1;
+
+	return -EINVAL;
 }
 
 void pp_table_graph(FILE *fp, bool print, struct net_flow_table_graph_node *nodes)
 {
-	struct net_flow_table_graph_node *sorted;
 	int i, j, src = -1;
 
 	if (!print)
@@ -639,7 +642,7 @@ out:
 int flow_get_actions(FILE *fp, bool print, struct nlattr *nl, struct net_flow_action **actions)
 {
 	struct net_flow_action *acts;
-	int err, rem, j = 0;
+	int rem, j = 0;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -778,6 +781,10 @@ int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct net_flow_fl
 		struct nlattr *flow[NET_FLOW_ATTR_MAX+1];
 
 		err = nla_parse_nested(flow, NET_FLOW_ATTR_MAX, i, flow_table_flow_policy);
+		if (err) {
+			fprintf(stderr, "Warning: get_flow parse error skipping input.\n");
+			continue;
+		}
 
 		if (flow[NET_FLOW_ATTR_TABLE])
 			f[count].table_id = nla_get_u32(flow[NET_FLOW_ATTR_TABLE]);
@@ -788,12 +795,22 @@ int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct net_flow_fl
 		if (flow[NET_FLOW_ATTR_PRIORITY])
 			f[count].priority = nla_get_u32(flow[NET_FLOW_ATTR_PRIORITY]);
 
-		if (flow[NET_FLOW_ATTR_MATCHES])
+		if (flow[NET_FLOW_ATTR_MATCHES]) {
 			err = flow_get_matches(fp, false,
 					       flow[NET_FLOW_ATTR_MATCHES], &matches);
+			if (err) {
+				fprintf(stderr, "Warning get_flow matches parse error skipping input.\n");
+				continue;
+			}
+		}
 
-		if (flow[NET_FLOW_ATTR_ACTIONS])
-			flow_get_actions(fp, false, flow[NET_FLOW_ATTR_ACTIONS], &actions);
+		if (flow[NET_FLOW_ATTR_ACTIONS]) {
+			err = flow_get_actions(fp, false, flow[NET_FLOW_ATTR_ACTIONS], &actions);
+			if (err) {
+				fprintf(stderr, "Warning get_flow actions parse error skipping input.\n");
+				continue;
+			}
+		}
 		
 		f[count].matches = matches;
 		f[count].actions = actions;
@@ -853,8 +870,7 @@ int flow_get_headers(FILE *fp, bool p, struct nlattr *nl)
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
 		struct nlattr *hdr[NET_FLOW_HEADER_ATTR_MAX+1];
 		struct net_flow_header *header;
-		struct nlattr *fields, *j;
-		int uid, err;
+		int err;
 
 		err = nla_parse_nested(hdr, NET_FLOW_HEADER_ATTR_MAX, i, flow_get_header_policy);
 		if (err) {
@@ -899,7 +915,6 @@ static int flow_get_jump_table(FILE *fp, bool p, struct nlattr *nl, struct net_f
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); j++, i = nla_next(i, &rem)) {
 		struct nlattr *jtb[NET_FLOW_JUMP_TABLE_MAX];
 		struct nlattr *nla = i;
-		int node;
 
 		err = nla_parse_nested(jtb, NET_FLOW_JUMP_TABLE_MAX, nla, flow_get_jump_policy);
 		if (err) {
@@ -931,7 +946,7 @@ static int flow_get_jump_table(FILE *fp, bool p, struct nlattr *nl, struct net_f
 int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_table_graph_node **ref)
 {
 	struct net_flow_table_graph_node *nodes;
-	int rem, err, uid, j;
+	int rem, err, j;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -980,7 +995,6 @@ int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_tabl
 static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg *args)
 {
 	struct net_flow_action_arg *this;
-	struct nlattr *arg;
 	int i, err, cnt = 0;
 
 	for (this = &args[0]; strlen(this->name) > 0; this++)
@@ -997,7 +1011,6 @@ static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg
 
 int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref)
 {
-	struct net_flow_action_arg *this;
 	struct nlattr *nest;
 	int err;
 	struct nlattr *action;
@@ -1102,6 +1115,28 @@ int flow_put_headers(struct nl_msg *nlbuf, struct net_flow_headers *ref)
 	return 0;
 }
 
+int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref)
+{
+	return nla_put(nlbuf, NET_FLOW_FIELD_REF, sizeof(*ref), ref);
+}
+
+int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int type)
+{
+	struct nlattr *matches;
+	int i;
+
+	matches = nla_nest_start(nlbuf, type);
+	if (!matches)
+		return -EMSGSIZE;
+
+	for (i = 0; ref[i].header; i++) {
+		if (flow_put_field_ref(nlbuf, &ref[i]))
+			return -EMSGSIZE;
+	}
+	nla_nest_end(nlbuf, matches);
+	return 0;
+}
+
 int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 {
 	int err;
@@ -1129,51 +1164,31 @@ int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 
 int flow_put_flows(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 {
-	struct nlattr *flows, *matches, *field;
-	struct nlattr *actions = NULL;
-	int err, j, i = 0;
+	struct nlattr *flows;
+	int err, i = 0;
 
 	flows = nla_nest_start(nlbuf, NET_FLOW_FLOWS);
 	if (!flows)
 		return -EMSGSIZE;
-	for (i = 0; ref[i].uid; i++)
-		flow_put_flow(nlbuf, &ref[i]);
+	for (i = 0; ref[i].uid; i++) {
+		err = flow_put_flow(nlbuf, &ref[i]);
+		if (err) {
+			fprintf(stderr, "Warning put flow error aborting\n");
+			return err;
+		}
+	}
 
 	nla_nest_end(nlbuf, flows);
 
 	return 0;
 }
 
-int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref)
-{
-	return nla_put(nlbuf, NET_FLOW_FIELD_REF, sizeof(*ref), ref);
-}
-
-int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int type)
-{
-	struct nlattr *matches;
-	int i;
-
-	matches = nla_nest_start(nlbuf, type);
-	if (!matches)
-		return -EMSGSIZE;
-
-	for (i = 0; ref[i].header; i++) {
-		if (flow_put_field_ref(nlbuf, &ref[i]))
-			return -EMSGSIZE;
-	}
-	nla_nest_end(nlbuf, matches);
-	return 0;
-}
 
 int flow_put_table(struct nl_msg *nlbuf, struct net_flow_table *ref)
 {
-	struct nlattr *matches, *flow, *actions;
-	struct net_flow_field_ref *m;
+	struct nlattr *actions;
 	net_flow_action_ref *aref;
 	int err;
-
-	flow = NULL; /* must null to get unwind correct */
 
 	if (nla_put_string(nlbuf, NET_FLOW_TABLE_ATTR_NAME, ref->name) ||
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_UID, ref->uid) ||

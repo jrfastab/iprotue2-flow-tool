@@ -208,7 +208,6 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 static void flow_table_cmd_get_tables(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -225,22 +224,9 @@ static void flow_table_cmd_get_tables(struct flow_msg *msg, int verbose)
 		flow_get_tables(stdout, verbose, tb[NET_FLOW_TABLES], NULL);
 }
 
-static struct nla_policy flow_get_field_policy[NET_FLOW_FIELD_ATTR_MAX+1] = {
-	[NET_FLOW_FIELD_ATTR_NAME]	= { .type = NLA_STRING },
-	[NET_FLOW_FIELD_ATTR_UID]	= { .type = NLA_U32 },
-	[NET_FLOW_FIELD_ATTR_BITWIDTH]	= { .type = NLA_U32 },
-};
-
-static struct nla_policy flow_get_header_policy[NET_FLOW_FIELD_ATTR_MAX+1] = {
-	[NET_FLOW_HEADER_ATTR_NAME]	= { .type = NLA_STRING },
-	[NET_FLOW_HEADER_ATTR_UID]	= { .type = NLA_U32 },
-	[NET_FLOW_HEADER_ATTR_FIELDS]	= { .type = NLA_NESTED },
-};
-
 static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -260,7 +246,6 @@ static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -285,7 +270,6 @@ static void flow_table_cmd_get_parse_graph(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_get_table_graph(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -302,6 +286,8 @@ static void flow_table_cmd_get_table_graph(struct flow_msg *msg, int verbose)
 		flow_get_tbl_graph(stdout, verbose, tb[NET_FLOW_TABLE_GRAPH], NULL);
 }
 
+/* TBD support flow ranges */
+#if 0
 static
 struct nla_policy flow_table_flows_policy[NET_FLOW_TABLE_FLOWS_MAX + 1] = {
 	[NET_FLOW_TABLE_FLOWS_TABLE]   = { .type = NLA_U32,},
@@ -309,11 +295,11 @@ struct nla_policy flow_table_flows_policy[NET_FLOW_TABLE_FLOWS_MAX + 1] = {
 	[NET_FLOW_TABLE_FLOWS_MAXPRIO] = { .type = NLA_U32,},
 	[NET_FLOW_TABLE_FLOWS_FLOWS]   = { .type = NLA_NESTED,},
 };
+#endif
 
 static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -333,7 +319,6 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -348,7 +333,6 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -364,7 +348,6 @@ static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_update_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -379,7 +362,6 @@ static void flow_table_cmd_update_flows(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_create_table(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -393,7 +375,6 @@ static void flow_table_cmd_create_table(struct flow_msg *msg, int verbose)
 static void flow_table_cmd_destroy_table(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
-	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	int err;
 
@@ -635,6 +616,8 @@ int get_action_arg(int argc, char **argv, bool need_args,
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
 			action->args[i].value_u64 = strtol(*argv, &endptr, 10);
 			break;
+		case NET_FLOW_ACTION_ARG_TYPE_NULL:
+			break;
 		}
 	}
 
@@ -656,7 +639,6 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 	net_flow_action_ref acts[MAX_ACTIONS];
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
-	int c, i, digit_optind = 0;
 	int err = 0, advance = 0;
 	int cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
 	struct net_flow_table table;
@@ -770,12 +752,10 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 
 int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
-	struct nlattr *actions, *action, *signatures, *signature;
 	struct net_flow_field_ref matches[MAX_MATCHES];
 	struct net_flow_action acts[MAX_ACTIONS];
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
-	int c, i, digit_optind = 0;
 	int advance = 0;
 	int cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
 	int err = 0;

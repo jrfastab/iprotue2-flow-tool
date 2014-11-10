@@ -40,9 +40,12 @@ int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref);
 int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *actions);
 int flow_put_headers(struct nl_msg *nlbuf, struct net_flow_header *header);
 int flow_put_flows(struct nl_msg *nlbuf, struct net_flow_flow *flow);
+int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref);
 int flow_put_table(struct nl_msg *nlbuf, struct net_flow_table *t);
 int flow_put_tables(struct nl_msg *nlbuf, struct net_flow_table *t);
 
+int find_match(char *header, char *field, int *hi, int *li);
+int find_action(char *name);
 
 void pp_action(FILE *fp, bool p, struct net_flow_action *ref);
 void pp_table(FILE *fp, bool p, struct net_flow_table *ref);
@@ -61,3 +64,5 @@ char *headers_names(int uid);
 char *fields_names(int uid);
 char *tables_names(int uid);
 char *action_names(int uid);
+
+int get_table_id(void);
