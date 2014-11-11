@@ -415,7 +415,6 @@ struct flow_msg *recv_flow_msg(int *err)
 				break;
 			}
 		}
-		printf("%s: hurray a reply %i\n", __func__, rc);
 	} while (rc == 0);
 
 	msg = wrap_netlink_msg((struct nlmsghdr *)buf);
@@ -501,8 +500,8 @@ void process_rx_message(int verbose)
 
 void flow_usage()
 {
-	fprintf(stdout, "flow <dev> [get_tables | get_headers | get_actions | get_flows <table> | get_graph]\n");
-	fprintf(stdout, "           [set_flow ]\n");
+	fprintf(stdout, "flow [-p pid] [-f family] <dev>\n");
+	fprintf(stdout, "           [get_tables | get_headers | get_actions | get_flows <table> | get_graph | set_flow]\n");
 }
 
 
@@ -885,7 +884,7 @@ int flow_send_recv(bool verbose, int pid, int family, int ifindex, int cmd, int 
 int main(int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
-	int family, err, ifindex, pid = 0;
+	int family = -1, err, ifindex, pid = 0;
 	bool resolve_names = true;
 	struct nl_sock *fd;
 	int tableid = 0;
@@ -897,13 +896,17 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "p:h")) != -1) {
+	while ((opt = getopt(argc, argv, "p:f:h")) != -1) {
 		switch (opt) {
 		case 'h':
 			flow_usage();
 			exit(-1);
 		case 'p':
 			pid = atoi(optarg);
+			args+=2;
+			break;
+		case 'f':
+			family = atoi(optarg);
 			args+=2;
 			break;
 		}
@@ -958,18 +961,19 @@ int main(int argc, char **argv)
 	nl_socket_free(fd);
 	
 	/* Get the family */
-	fd = nl_socket_alloc();
-	genl_connect(fd);
-
-	family = genl_ctrl_resolve(fd, NET_FLOW_GENL_NAME);
 	if (family < 0) {
-		printf("Can not resolve family FLOW_TABLE\n");
-		goto out;
-	}
-	nl_close(fd);
-	nl_socket_free(fd);
+		fd = nl_socket_alloc();
+		genl_connect(fd);
 
-	printf("%s: pid %d\n", __func__, pid);
+		family = genl_ctrl_resolve(fd, NET_FLOW_GENL_NAME);
+		if (family < 0) {
+			printf("Can not resolve family FLOW_TABLE\n");
+			goto out;
+		}
+		nl_close(fd);
+		nl_socket_free(fd);
+	}
+
 	if (resolve_names) {
 		err = flow_send_recv(false, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS, 0);
 		if (err)
