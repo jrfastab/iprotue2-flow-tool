@@ -327,7 +327,6 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 		fprintf(stderr, "Warning unable to parse set flows msg\n");
 		return;
 	}
-	fprintf(stderr, "debug cmd set flow returned\n");
 }
 
 static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
@@ -399,7 +398,6 @@ struct flow_msg *recv_flow_msg(int *err)
 	*err = 0;
 
 	do {
-		printf("%s: waiting for reply\n", __func__);
 		rc = nl_recv(nsd, &nla, &buf, NULL);
 		if (rc < 0) {	
 			switch (errno) {
@@ -447,13 +445,8 @@ struct flow_msg *recv_flow_msg(int *err)
 	glm = nlmsg_data(msg->msg);
 	type = glm->cmd;
 	
-	if (type != NET_FLOW_TABLE_CMD_GET_TABLES &&
-	    type != NET_FLOW_TABLE_CMD_GET_HEADERS &&
-	    type != NET_FLOW_TABLE_CMD_GET_ACTIONS &&
-	    type != NET_FLOW_TABLE_CMD_GET_FLOWS &&
-	    type != NET_FLOW_TABLE_CMD_GET_TABLE_GRAPH) {
-		printf("Received message of unknown type %d\n", 
-			type);
+	if (type < 0 || type > NET_FLOW_CMD_MAX) {
+		fprintf(stderr, "Received message of unknown type %d\n", type);
 		free_flow_msg(msg);
 		return NULL;
 	}
@@ -743,7 +736,7 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 	nla_nest_end(msg->nlbuf, nest);
 
 	set_ack_cb(msg, handle_flow_table_get_tables);
-	nl_send(nsd, msg->nlbuf);
+	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
 	return 0;
@@ -839,7 +832,7 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 	nla_nest_end(msg->nlbuf, flows);
 
 	set_ack_cb(msg, handle_flow_table_get_tables);
-	nl_send(nsd, msg->nlbuf);
+	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
 	return 0;
