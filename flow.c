@@ -621,6 +621,90 @@ done:
 
 static void set_table_usage()
 {
+	fprintf(stdout, "flow dev create source <id> name <name> [id <id>] size <size> [match ...] [action ...]\n");
+}
+
+static void del_table_usage()
+{
+	fprintf(stdout, "flow dev destroy source <id> [name <name> | id <id>]\n");
+}
+
+int flow_destroy_tbl_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+{
+	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
+	struct net_flow_table table = {0};
+	struct nlattr *nest, *nest1;
+	struct flow_msg *msg;
+	int err = 0;
+
+	while (argc > 0) {
+		if (strcmp(*argv, "name") == 0) {
+			NEXT_ARG();
+			strncpy(table.name, *argv, IFNAMSIZ - 1);
+			table.uid = get_table_id(table.name);	
+		} else if (strcmp(*argv, "source") == 0) {
+			NEXT_ARG();
+			table.source = atoi(*argv);
+		} else if (strcmp(*argv, "id") == 0) {
+			NEXT_ARG();
+			table.uid = atoi(*argv);	
+		}
+		argc--; argv++;
+	}
+
+	if (err) {
+		printf("Invalid argument\n");
+		del_table_usage();
+		exit(-1);
+	}
+
+	if (!table.uid) {
+		if (strncmp(table.name, "", IFNAMSIZ))
+			fprintf(stderr, "Unknown table name %s\n", table.name);
+		else
+			fprintf(stderr, "Unknown table id %i\n", table.uid);
+
+		exit(-1);
+	}
+
+	if (!table.source) {
+		fprintf(stderr, "Missing table <source> specifier.\n");
+		del_table_usage();
+		exit(-1);
+	}
+
+	pp_table(stdout, true, &table);
+
+	/* open generic netlink socke twith flow table api */
+	nsd = nl_socket_alloc();
+	nl_connect(nsd, NETLINK_GENERIC);
+
+	msg = alloc_flow_msg(cmd, pid, NLM_F_REQUEST|NLM_F_ACK, 0, family);
+	if (!msg) {
+		fprintf(stderr, "Error: Allocation failure\n");
+		return -ENOMSG;
+	}
+
+	if (nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex)) {
+		fprintf(stderr, "Error: Identifier put failed\n");
+		return -EMSGSIZE;
+	}
+
+	nest = nla_nest_start(msg->nlbuf, NET_FLOW_TABLES);
+	if (!nest)
+		return -EMSGSIZE;
+	nest1 = nla_nest_start(msg->nlbuf, NET_FLOW_TABLE);
+	flow_put_table(msg->nlbuf, &table);
+	nla_nest_end(msg->nlbuf, nest1);
+	nla_nest_end(msg->nlbuf, nest);
+
+	set_ack_cb(msg, handle_flow_table_get_tables);
+	nl_send_auto(nsd, msg->nlbuf);
+	process_rx_message(verbose);
+
+	return 0;
+
 }
 
 int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
@@ -681,8 +765,13 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 		exit(-1);
 	}
 
-	if (!table.uid)
-		table.uid = get_table_id();
+	if (!table.uid) {
+		table.uid = gen_table_id();
+		if (table.uid < 0) {
+			fprintf(stderr, "Could not generate unique table id! Too many tables\n");
+			exit(-1);
+		}
+	}
 
 	if (!table.size) {
 		fprintf(stderr, "Missing table <size> specifier.\n");
@@ -704,6 +793,12 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 
 	if (!table.actions[0]) {
 		fprintf(stderr, "Table has NULL <action> specifier. Aborting this doesn't appear useful\n");
+		set_table_usage();
+		exit(-1);
+	}
+
+	if (strncmp(table.name, "", IFNAMSIZ) == 0) {
+		fprintf(stderr, "Table has NULL <name> specifier. Please name table\n");
 		set_table_usage();
 		exit(-1);
 	}
@@ -995,6 +1090,8 @@ int main(int argc, char **argv)
 			cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS;
 		} else if (strcmp(argv[args], "create") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
+		} else if (strcmp(argv[args], "destroy") == 0) {
+			cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
 		} else {
 			flow_usage();	
 			return 0;
@@ -1056,6 +1153,9 @@ int main(int argc, char **argv)
 		break;
 	case NET_FLOW_TABLE_CMD_CREATE_TABLE:
 		flow_create_tbl_send(true, pid, family, ifindex, argc, argv);
+		break;
+	case NET_FLOW_TABLE_CMD_DESTROY_TABLE:
+		flow_destroy_tbl_send(true, pid, family, ifindex, argc, argv);
 		break;
 	default:
 		flow_send_recv(true, pid, family, ifindex, cmd, tableid);

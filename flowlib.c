@@ -87,12 +87,25 @@ struct net_flow_table *get_tables(int uid)
 	return tables[uid];
 }
 
-int get_table_id(void)
+int get_table_id(char *name)
 {
-	int i = 0, j;
+	int i;
 
 	for (i = 0; i < MAX_TABLES; i++) {
-		for (j = 0; j < MAX_TABLES; j++) {
+		if (tables[i] &&
+		    strncmp(tables[i]->name, name, IFNAMSIZ) == 0)
+			return tables[i]->uid;
+	}
+
+	return 0;
+}
+
+int gen_table_id(void)
+{
+	int i,j;
+
+	for (i = 1; i < MAX_TABLES; i++) {
+		for (j = 1; j < MAX_TABLES; j++) {
 			if (tables[j])
 				break;
 		}
@@ -413,13 +426,13 @@ void pp_table(FILE *fp, int p, struct net_flow_table *table)
 		pp_fields(fp, p, table->matches);
 
 	pfprintf(fp, p, "  actions:\n");
-	if (table->actions)
-	
-	for (i = 0; table->actions[i]; i++) {
-		struct net_flow_action *act = actions[table->actions[i]];
+	if (table->actions) {
+		for (i = 0; table->actions[i]; i++) {
+			struct net_flow_action *act = actions[table->actions[i]];
 
-		if (act->uid)
-			pp_action(stdout, p, act);
+			if (act->uid)
+				pp_action(stdout, p, act);
+		}
 	}
 
 }
@@ -673,8 +686,8 @@ int flow_get_table(FILE *fp, bool print, struct nlattr *nl,
 	struct nlattr *i;
 	char *name;
 	int uid, src, size, cnt, rem, err = 0;
-	struct net_flow_field_ref *matches;
-	net_flow_action_ref *actions;
+	struct net_flow_field_ref *matches = NULL;
+	net_flow_action_ref *actions = NULL;
 
 	err = nla_parse_nested(table, NET_FLOW_TABLE_ATTR_MAX, nl, net_flow_table_policy);
 	if (err) {
@@ -736,7 +749,7 @@ int flow_get_tables(FILE *fp, bool print, struct nlattr *nl,
 	for (cnt = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
 		cnt++;
 
-	tables = calloc(cnt, sizeof(struct net_flow_table));
+	tables = calloc(cnt + 1, sizeof(struct net_flow_table));
 	if (!tables)
 		return -ENOMEM;
 
@@ -1200,19 +1213,23 @@ int flow_put_table(struct nl_msg *nlbuf, struct net_flow_table *ref)
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_SIZE, ref->size))
 		return -EMSGSIZE;
 
-	err = flow_put_matches(nlbuf, ref->matches, NET_FLOW_TABLE_ATTR_MATCHES);
-	if (err)
-		return err;
-
-	actions = nla_nest_start(nlbuf, NET_FLOW_TABLE_ATTR_ACTIONS);
-	if (!actions)
-		return -EMSGSIZE;
-
-	for (aref = ref->actions; *aref; aref++) {
-		if (nla_put_u32(nlbuf, NET_FLOW_ACTION_ATTR_UID, *aref))
-			return -EMSGSIZE;
+	if (ref->matches) {
+		err = flow_put_matches(nlbuf, ref->matches, NET_FLOW_TABLE_ATTR_MATCHES);
+		if (err)
+			return err;
 	}
-	nla_nest_end(nlbuf, actions);
+
+	if (ref->actions) {
+		actions = nla_nest_start(nlbuf, NET_FLOW_TABLE_ATTR_ACTIONS);
+		if (!actions)
+			return -EMSGSIZE;
+
+		for (aref = ref->actions; *aref; aref++) {
+			if (nla_put_u32(nlbuf, NET_FLOW_ACTION_ATTR_UID, *aref))
+				return -EMSGSIZE;
+		}
+		nla_nest_end(nlbuf, actions);
+	}
 	return 0;
 }
 

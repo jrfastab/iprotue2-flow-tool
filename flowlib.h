@@ -65,4 +65,5 @@ char *fields_names(int uid);
 char *tables_names(int uid);
 char *action_names(int uid);
 
-int get_table_id(void);
+int gen_table_id(void);
+int get_table_id(char *name);
