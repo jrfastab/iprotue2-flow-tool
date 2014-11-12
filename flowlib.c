@@ -1150,13 +1150,17 @@ int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 	nla_put_u32(nlbuf, NET_FLOW_ATTR_UID, ref->uid);
 	nla_put_u32(nlbuf, NET_FLOW_ATTR_PRIORITY, ref->priority);
 
-	err = flow_put_matches(nlbuf, ref->matches, NET_FLOW_ATTR_MATCHES);
-	if (err)
-		return err;
+	if (ref->matches) {
+		err = flow_put_matches(nlbuf, ref->matches, NET_FLOW_ATTR_MATCHES);
+		if (err)
+			return err;
+	}
 
-	err = flow_put_actions(nlbuf, ref->actions);
-	if (err)
-		return err;
+	if (ref->actions) {
+		err = flow_put_actions(nlbuf, ref->actions);
+		if (err)
+			return err;
+	}
 
 	nla_nest_end(nlbuf, flow);
 	return 0;

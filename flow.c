@@ -494,13 +494,12 @@ void process_rx_message(int verbose)
 void flow_usage()
 {
 	fprintf(stdout, "flow [-p pid] [-f family] <dev>\n");
-	fprintf(stdout, "           [get_tables | get_headers | get_actions | get_flows <table> | get_graph | set_flow]\n");
+	fprintf(stdout, "           [get_tables | get_headers | get_actions | get_flows <table> | get_graph | set_flow | del_flow | create | destroy]\n");
 }
-
 
 void set_flow_usage()
 {
-	printf("flow dev set_flow prio <num> fh <num> table <id>  match <name> action <name arguments>\n");
+	printf("flow dev set_flow prio <num> handle <num> table <id>  match <name> action <name arguments>\n");
 }
 
 #define NEXT_ARG() do { argv++; if (--argc <= 0) break; } while(0)
@@ -742,6 +741,73 @@ int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int arg
 	return 0;
 }
 
+void del_flow_usage()
+{
+	printf("flow dev del_flow handle <num> table <id>\n");
+}
+
+int flow_del_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+{
+	struct net_flow_flow flow = {0};
+	struct flow_msg *msg;
+	struct nlattr *flows;
+	int cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS;
+
+	while (argc > 0) {
+		if (strcmp(*argv, "prio") == 0) {
+			NEXT_ARG();
+			flow.priority = atoi(*argv);
+		} else if (strcmp(*argv, "handle") == 0) {
+			NEXT_ARG();
+			flow.uid = atoi(*argv);
+		} else if (strcmp(*argv, "table") == 0) {
+			NEXT_ARG();
+			flow.table_id = atoi(*argv);
+		}
+		argc--; argv++;
+	}
+
+	if (!flow.table_id) {
+		fprintf(stderr, "Table ID requried\n");	
+		del_flow_usage();
+		exit(-1);
+	}
+
+	if (!flow.uid) {
+		fprintf(stderr, "Flow ID requried\n");	
+		del_flow_usage();
+		exit(-1);
+	}
+
+	/* open generic netlink socke twith flow table api */
+	nsd = nl_socket_alloc();
+	nl_connect(nsd, NETLINK_GENERIC);
+
+	msg = alloc_flow_msg(cmd, pid, NLM_F_REQUEST|NLM_F_ACK, 0, family);
+	if (!msg) {
+		fprintf(stderr, "Error: Allocation failure\n");
+		return -ENOMSG;
+	}
+
+	if (nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex)) {
+		fprintf(stderr, "Error: Identifier put failed\n");
+		return -EMSGSIZE;
+	}
+
+	flows = nla_nest_start(msg->nlbuf, NET_FLOW_FLOWS);
+	if (!flows)
+		return -EMSGSIZE;
+	flow_put_flow(msg->nlbuf, &flow);
+	nla_nest_end(msg->nlbuf, flows);
+
+	set_ack_cb(msg, handle_flow_table_get_tables);
+	nl_send_auto(nsd, msg->nlbuf);
+	process_rx_message(verbose);
+
+	return 0;
+}
+
 int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	struct net_flow_field_ref matches[MAX_MATCHES];
@@ -925,6 +991,8 @@ int main(int argc, char **argv)
 			tableid = atoi(argv[args+1]);
 		} else if (strcmp(argv[args], "set_flow") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
+		} else if (strcmp(argv[args], "del_flow") == 0) {
+			cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS;
 		} else if (strcmp(argv[args], "create") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
 		} else {
@@ -982,6 +1050,9 @@ int main(int argc, char **argv)
 	switch (cmd) {
 	case NET_FLOW_TABLE_CMD_SET_FLOWS:
 		flow_set_send(true, pid, family, ifindex, argc, argv);
+		break;
+	case NET_FLOW_TABLE_CMD_DEL_FLOWS:
+		flow_del_send(true, pid, family, ifindex, argc, argv);
 		break;
 	case NET_FLOW_TABLE_CMD_CREATE_TABLE:
 		flow_create_tbl_send(true, pid, family, ifindex, argc, argv);
