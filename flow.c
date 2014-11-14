@@ -493,7 +493,7 @@ void process_rx_message(int verbose)
 
 void flow_usage()
 {
-	fprintf(stdout, "flow [-p pid] [-f family] <dev>\n");
+	fprintf(stdout, "flow [-p pid] [-f family] [-i dev]\n");
 	fprintf(stdout, "           [get_tables | get_headers | get_actions | get_flows <table> | get_graph | set_flow | del_flow | create | destroy]\n");
 }
 
@@ -1038,19 +1038,20 @@ int flow_send_recv(bool verbose, int pid, int family, int ifindex, int cmd, int 
 int main(int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
-	int family = -1, err, ifindex, pid = 0;
+	int family = -1, err, ifindex = 0, pid = 0;
 	bool resolve_names = true;
 	struct nl_sock *fd;
 	int tableid = 0;
 	int opt;
-	int args = 2;
+	int args = 1;
+	char *ifname = NULL;
 
 	if (argc < 2) {
 		flow_usage();
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "p:f:h")) != -1) {
+	while ((opt = getopt(argc, argv, "i:p:f:h")) != -1) {
 		switch (opt) {
 		case 'h':
 			flow_usage();
@@ -1061,6 +1062,10 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 			family = atoi(optarg);
+			args+=2;
+			break;
+		case 'i':
+			ifname = optarg;
 			args+=2;
 			break;
 		}
@@ -1109,10 +1114,13 @@ int main(int argc, char **argv)
 		nl_perror(err, "Unable to allocate cache\n");
 		return err;
 	}
-	if (!(ifindex = rtnl_link_name2i(link_cache, argv[args-1]))) {
-		fprintf(stderr, "Unable to lookup %s\n", argv[args-1]);
-		flow_usage();
-		return -1;
+
+	if (ifname) {
+		if (!(ifindex = rtnl_link_name2i(link_cache, ifname))) {
+			fprintf(stderr, "Unable to lookup %s\n", ifname);
+			flow_usage();
+			return -1;
+		}
 	}
 
 	nl_close(fd);
