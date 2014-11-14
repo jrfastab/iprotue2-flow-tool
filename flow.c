@@ -163,7 +163,7 @@ static struct nla_policy flow_get_tables_policy[NET_FLOW_MAX+1] = {
 	[NET_FLOW_TABLES]	= { .type = NLA_NESTED },
 	[NET_FLOW_HEADERS]	= { .type = NLA_NESTED },
 	[NET_FLOW_ACTIONS] 	= { .type = NLA_NESTED },
-	[NET_FLOW_PARSE_GRAPH] 	= { .type = NLA_NESTED },
+	[NET_FLOW_HEADER_GRAPH]	= { .type = NLA_NESTED },
 	[NET_FLOW_TABLE_GRAPH]	= { .type = NLA_NESTED },
 	[NET_FLOW_FLOWS]	= { .type = NLA_NESTED },
 };
@@ -262,9 +262,23 @@ static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
 		flow_get_actions(stdout, verbose, tb[NET_FLOW_ACTIONS], NULL);
 }
 
-static void flow_table_cmd_get_parse_graph(struct flow_msg *msg, int verbose)
+static void flow_table_cmd_get_headers_graph(struct flow_msg *msg, int verbose)
 {
-	pfprintf(stdout, verbose, "Parse graph operation not supported\n");
+	struct nlmsghdr *nlh = msg->msg;
+	struct nlattr *tb[NET_FLOW_MAX+1];
+	int err;
+
+	err = genlmsg_parse(nlh, 0, tb, NET_FLOW_MAX, flow_get_tables_policy);
+	if (err < 0) {
+		fprintf(stderr, "Warning unable to parse get tables msg\n");
+		return;
+	}
+
+	if (flow_table_cmd_to_type(stdout, false, NET_FLOW_HEADER_GRAPH, tb))
+		return;
+
+	if (tb[NET_FLOW_HEADER_GRAPH])
+		flow_get_hdrs_graph(stdout, verbose, tb[NET_FLOW_HEADER_GRAPH], NULL);
 }
 
 static void flow_table_cmd_get_table_graph(struct flow_msg *msg, int verbose)
@@ -458,7 +472,7 @@ static void(*type_cb[NET_FLOW_CMD_MAX+1])(struct flow_msg *, int err) = {
 	flow_table_cmd_get_tables,
 	flow_table_cmd_get_headers,
 	flow_table_cmd_get_actions,
-	flow_table_cmd_get_parse_graph,
+	flow_table_cmd_get_headers_graph,
 	flow_table_cmd_get_table_graph,
 	flow_table_cmd_get_flows,
 	flow_table_cmd_set_flows,
@@ -1077,6 +1091,8 @@ int main(int argc, char **argv)
 		} else if (strcmp(argv[args], "get_headers") == 0) {
 			resolve_names = false;
 			cmd = NET_FLOW_TABLE_CMD_GET_HEADERS;
+		} else if (strcmp(argv[args], "get_header_graph") == 0) {
+			cmd = NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH;
 		} else if (strcmp(argv[args], "get_actions") == 0) {
 			resolve_names = false;
 			cmd = NET_FLOW_TABLE_CMD_GET_ACTIONS;
