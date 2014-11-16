@@ -46,12 +46,17 @@
 #include <linux/if_ether.h>
 
 #include <linux/if_flow.h>
+#include <gvc.h>
+
+#include "flowlib.h"
 
 #define MAX_TABLES 100
 #define MAX_HDRS 100
 #define MAX_FIELDS 100
 #define MAX_ACTIONS 100
 #define MAX_NODES 100
+
+Agnode_t *graphviz_table_nodes[MAX_NODES];
 
 struct net_flow_table *tables[MAX_TABLES];
 struct net_flow_header *headers[MAX_HDRS];	
@@ -74,7 +79,7 @@ struct net_flow_header *get_headers(int uid)
 	return headers[uid];
 }
 
-static char *fields_names(int hid, int fid)
+char *fields_names(int hid, int fid)
 {
 	return header_fields[hid][fid] ? header_fields[hid][fid]->name : "<none>";
 }
@@ -212,6 +217,14 @@ void flow_push_header_fields(struct net_flow_header **h)
 	}
 }
 
+/* Work with graphviz dot graphs */
+static GVC_t *gvc;
+
+void flow_init_graph()
+{
+	gvc = gvContext();
+}
+
 /* ll_addr_n2a is a iproute 2 library call hard coded here for now */
 const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int blen)
 {
@@ -232,12 +245,12 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int 
 	return buf;
 }
 
-static void pfprintf(FILE *fp, bool p, const char *format, ...)
+static void pfprintf(FILE *fp, int print, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 
-	if (p)
+	if (print)
 		vfprintf(fp, format, args);
 
 	va_end(args);
@@ -306,7 +319,7 @@ static struct nla_policy flow_get_hdr_node_policy[NET_FLOW_HEADER_NODE_MAX + 1] 
 	[NET_FLOW_HEADER_NODE_JUMP] = { .type = NLA_NESTED,},
 };
 
-static void pp_field_ref(FILE *fp, bool p, struct net_flow_field_ref *ref, bool first, bool nl)
+static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bool first, bool nl)
 {
 	char b1[16] = ""; /* arbitrary string field for mac */
 	int hi = ref->header;
@@ -314,11 +327,11 @@ static void pp_field_ref(FILE *fp, bool p, struct net_flow_field_ref *ref, bool 
 
 	if (!ref->type) {
 		if (!ref->header && !ref->field)
-			pfprintf(fp, p, "\t <any>");
+			pfprintf(fp, print, "\t <any>");
 		else if (!first)
-			pfprintf(fp, p, " %s", fields_names(hi, fi));
+			pfprintf(fp, print, " %s", fields_names(hi, fi));
 		else
-			pfprintf(fp, p, "\n\t field: %s [%s",
+			pfprintf(fp, print, "\n\t field: %s [%s",
 				 headers_names(hi), fields_names(hi, fi));
 #if 0
 		else
@@ -328,19 +341,19 @@ static void pp_field_ref(FILE *fp, bool p, struct net_flow_field_ref *ref, bool 
 
 	switch (ref->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		pfprintf(fp, p, "\t %s.%s = %02x (%02x)",
+		pfprintf(fp, print, "\t %s.%s = %02x (%02x)",
 			headers_names(hi), fields_names(hi, fi), ref->value_u8, ref->mask_u8);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		pfprintf(fp, p, "\t %s.%s = %04x (%04x)",
+		pfprintf(fp, print, "\t %s.%s = %04x (%04x)",
 			headers_names(hi), fields_names(hi, fi), ref->value_u16, ref->mask_u16);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		pfprintf(fp, p, "\t %s.%s = %08x (%08x)",
+		pfprintf(fp, print, "\t %s.%s = %08x (%08x)",
 			headers_names(hi), fields_names(hi, fi), ref->value_u32, ref->mask_u32);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		pfprintf(fp, p, "\t %s.%s = %s (%016x)",
+		pfprintf(fp, print, "\t %s.%s = %s (%016x)",
 			 headers_names(hi), fields_names(hi, fi),
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
 			 ref->value_u64, ref->mask_u64);
@@ -350,10 +363,10 @@ static void pp_field_ref(FILE *fp, bool p, struct net_flow_field_ref *ref, bool 
 	}
 
 	if (ref->type && nl)
-		pfprintf(fp, p, "\n");
+		pfprintf(fp, print, "\n");
 }
 
-void pp_fields(FILE *fp, bool print, struct net_flow_field_ref *ref)
+void pp_fields(FILE *fp, int print, struct net_flow_field_ref *ref)
 {
 	int i;
 	bool first = true;
@@ -379,12 +392,12 @@ const char *flow_table_arg_type_str[__NET_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 	"u64",
 };
 
-void pp_action(FILE *fp, bool p, struct net_flow_action *act)
+void pp_action(FILE *fp, int print, struct net_flow_action *act)
 {
 	struct net_flow_action_arg *arg;
 	int i;
 
-	pfprintf(fp, p, "\t   %i: %s ( ", act->uid, act->name);
+	pfprintf(fp, print, "\t   %i: %s ( ", act->uid, act->name);
 
 	if (!act->args)
 		goto out;
@@ -392,22 +405,22 @@ void pp_action(FILE *fp, bool p, struct net_flow_action *act)
 	for (i = 0; act->args[i].type; i++) {
 		arg = &act->args[i];
 
-		pfprintf(fp, p, "%s %s ",
+		pfprintf(fp, print, "%s %s ",
 			 flow_table_arg_type_str[arg->type],
 			 arg->name ? arg->name : "");
 
 		switch (arg->type) {
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			pfprintf(fp, p, "%02x ", arg->value_u8);
+			pfprintf(fp, print, "%02x ", arg->value_u8);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			pfprintf(fp, p, "%i ", arg->value_u16);
+			pfprintf(fp, print, "%i ", arg->value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			pfprintf(fp, p, "%i ", arg->value_u32);
+			pfprintf(fp, print, "%i ", arg->value_u32);
 		break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			pfprintf(fp, p, "%llu ", arg->value_u64);
+			pfprintf(fp, print, "%llu ", arg->value_u64);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 		default:
@@ -415,69 +428,68 @@ void pp_action(FILE *fp, bool p, struct net_flow_action *act)
 		}
 	}
 out:
-	pfprintf(fp, p, " )\n");
+	pfprintf(fp, print, " )\n");
 }
 
-void pp_actions(FILE *fp, bool p, struct net_flow_action *actions)
+void pp_actions(FILE *fp, int print, struct net_flow_action *actions)
 {
 	int i;
 
 	for (i = 0; actions[i].uid; i++)
-		pp_action(fp, p, &actions[i]);
+		pp_action(fp, print, &actions[i]);
 }
 
-void pp_table(FILE *fp, int p, struct net_flow_table *table)
+void pp_table(FILE *fp, int print, struct net_flow_table *table)
 {
 	int i;
 
-	pfprintf(fp, p, "\n%s:%i src %i size %i\n",
+	pfprintf(fp, print, "\n%s:%i src %i size %i\n",
 		 table->name, table->uid, table->source, table->size);
 
-	pfprintf(fp, p, "  matches:");
+	pfprintf(fp, print, "  matches:");
 	if (table->matches)
-		pp_fields(fp, p, table->matches);
+		pp_fields(fp, print, table->matches);
 
-	pfprintf(fp, p, "  actions:\n");
+	pfprintf(fp, print, "  actions:\n");
 	if (table->actions) {
 		for (i = 0; table->actions[i]; i++) {
 			struct net_flow_action *act = actions[table->actions[i]];
 
 			if (act->uid)
-				pp_action(stdout, p, act);
+				pp_action(stdout, print, act);
 		}
 	}
-
 }
 
-void pp_header(FILE *fp, bool p, struct net_flow_header *header)
+void pp_header(FILE *fp, int print, struct net_flow_header *header)
 {
 	struct net_flow_field *f;
 	int i = 0;
 
-	pfprintf(fp, p, "  %s {\n\t", header->name);
+	pfprintf(fp, print, "  %s {\n\t", header->name);
 
 	for (f = &header->fields[i];
 	     f->uid;
 	     f = &header->fields[++i]) {
 		if (f->bitwidth >= 0)
-			pfprintf(fp, p, " %s:%i ", f->name, f->bitwidth);
+			pfprintf(fp, print, " %s:%i ", f->name, f->bitwidth);
 		else
-			pfprintf(fp, p, " %s:* ", f->name);
+			pfprintf(fp, print, " %s:* ", f->name);
 
 		if (i && !(i % 5))
-			pfprintf(fp, p, " \n\t");
+			pfprintf(fp, print, " \n\t");
 	}
 
 	if (i % 5)
-		pfprintf(fp, p, "\n\t");
-	pfprintf(fp, p, " }\n");
+		pfprintf(fp, print, "\n\t");
+	pfprintf(fp, print, " }\n");
 }
 
-void pp_flow(FILE *fp, bool print, struct net_flow_flow *flow)
+void pp_flow(FILE *fp, int print, struct net_flow_flow *flow)
 {
-	pfprintf(fp, true, "table : %i  ", flow->table_id);
-	pfprintf(fp, true, "uid : %i  ", flow->uid);
-	pfprintf(fp, true, "prio : %i\n", flow->priority);
+	pfprintf(fp, print, "table : %i  ", flow->table_id);
+	pfprintf(fp, print, "uid : %i  ", flow->uid);
+	pfprintf(fp, print, "prio : %i\n", flow->priority);
 
 	if (flow->matches)
 		pp_fields(fp, print, flow->matches);	
@@ -486,7 +498,7 @@ void pp_flow(FILE *fp, bool print, struct net_flow_flow *flow)
 }
 
 
-void pp_flows(FILE *fp, bool print, struct net_flow_flow *flows)
+void pp_flows(FILE *fp, int print, struct net_flow_flow *flows)
 {
 	int i;
 
@@ -497,7 +509,8 @@ void pp_flows(FILE *fp, bool print, struct net_flow_flow *flows)
 		pp_flow(fp, print, &flows[i]);
 }
 
-static void pp_jump_table(FILE *fp, bool print, struct net_flow_jump_table *jump)
+static void pp_jump_table(FILE *fp, int print,
+			  struct net_flow_jump_table *jump)
 {
 	if (!print)
 		return;
@@ -505,8 +518,9 @@ static void pp_jump_table(FILE *fp, bool print, struct net_flow_jump_table *jump
 	pp_field_ref(fp, print, &jump->field, 0, false);
 	if (jump->node < 0)
 		pfprintf(fp, print, " -> terminal\n");
-	else
+	else {
 		pfprintf(fp, print, " -> %s\n", table_names(jump->node));
+	}
 
 }
 
@@ -530,8 +544,8 @@ static int flow_compar_graph_nodes(const void *a, const void *b)
 
 	return -EINVAL;
 }
-
-void pp_table_graph(FILE *fp, bool print, struct net_flow_table_graph_node *nodes)
+ 
+void pp_table_graph(FILE *fp, int print, struct net_flow_table_graph_node *nodes)
 {
 	int i, j, src = -1;
 
@@ -542,7 +556,6 @@ void pp_table_graph(FILE *fp, bool print, struct net_flow_table_graph_node *node
 		;
 
 	qsort(nodes, i, sizeof(*nodes), flow_compar_graph_nodes);
-
 	for (i = 0; nodes[i].uid; i++) {
 		struct net_flow_table *t = get_tables(nodes[i].uid);
 
@@ -557,7 +570,45 @@ void pp_table_graph(FILE *fp, bool print, struct net_flow_table_graph_node *node
 	}
 }
 
-void pp_header_graph(FILE *fp, bool print, struct net_flow_header_node *nodes)
+static void ppg_jump_table(FILE *fp, int print,
+			  struct net_flow_jump_table *jump,
+			  Agraph_t *g, Agnode_t *n)
+{
+	Agedge_t *e;
+
+	//pp_field_ref(fp, print, &jump->field, 0, false);
+	if (jump->node > 0) {
+		e = agedge(g, n, graphviz_table_nodes[jump->node], 0, 1);
+	}
+}
+
+void ppg_table_graph(FILE *fp, int print, struct net_flow_table_graph_node *nodes)
+{
+	Agraph_t *g = agopen("g", Agdirected, 0);
+	int i, j;
+
+	agsafeset(g, "rankdir", "LR", "");
+	for (i = 0; nodes[i].uid; i++) {
+		Agnode_t *n = agnode(g, table_names(nodes[i].uid), 1);
+
+		agsafeset(n, "shape", "record", ""); /* use record boxes */
+		graphviz_table_nodes[nodes[i].uid] = n;
+	}
+
+	qsort(nodes, i, sizeof(*nodes), flow_compar_graph_nodes);
+	for (i = 0; nodes[i].uid; i++) {
+		for (j = 0; nodes[i].jump[j].node; ++j)
+			ppg_jump_table(fp, print, &nodes[i].jump[j], g,
+				       graphviz_table_nodes[nodes[i].uid]);
+	}
+	agwrite(g, fp);
+}
+
+void ppg_header_graph(FILE *fp, int print, struct net_flow_header_node *nodes)
+{
+}
+
+void pp_header_graph(FILE *fp, int print, struct net_flow_header_node *nodes)
 {
 	int i, j;
 
@@ -583,14 +634,14 @@ void pp_header_graph(FILE *fp, bool print, struct net_flow_header_node *nodes)
 	}
 }
 
-int flow_get_field(FILE *fp, bool p, struct nlattr *nl, struct net_flow_field_ref *ref)
+int flow_get_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref *ref)
 {
 	*ref = *(struct net_flow_field_ref*) nla_data(nl);
-	pp_field_ref(fp, p, ref, -1, true);
+	pp_field_ref(fp, print, ref, -1, true);
 	return 0;
 }
 
-int flow_get_action(FILE *fp, bool p, struct nlattr *nl, struct net_flow_action *a)
+int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_action *a)
 {
 	int rem;
 	struct nlattr *signature, *l;
@@ -657,11 +708,11 @@ done:
 		a->args = act->args;
 	}
 	actions[uid] = act;
-	pp_action(fp, p, act);
+	pp_action(fp, print, act);
 	return 0;
 }
 
-int flow_get_matches(FILE *fp, bool print, struct nlattr *nl, struct net_flow_field_ref **ref)
+int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref **ref)
 {
 	struct net_flow_field_ref *r;
 	struct nlattr *i;
@@ -684,7 +735,7 @@ int flow_get_matches(FILE *fp, bool print, struct nlattr *nl, struct net_flow_fi
 	return 0;
 }
 
-int flow_get_actions(FILE *fp, bool print, struct nlattr *nl, struct net_flow_action **actions)
+int flow_get_actions(FILE *fp, int print, struct nlattr *nl, struct net_flow_action **actions)
 {
 	struct net_flow_action *acts;
 	int rem, j = 0;
@@ -711,7 +762,7 @@ int flow_get_actions(FILE *fp, bool print, struct nlattr *nl, struct net_flow_ac
 }
 
 
-int flow_get_table(FILE *fp, bool print, struct nlattr *nl,
+int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 		   struct net_flow_table *t)
 {
 	struct nlattr *table[NET_FLOW_TABLE_ATTR_MAX+1];
@@ -770,7 +821,7 @@ out:
 	return -ENOMEM;
 }
 
-int flow_get_tables(FILE *fp, bool print, struct nlattr *nl,
+int flow_get_tables(FILE *fp, int print, struct nlattr *nl,
 		      struct net_flow_table **t)
 {
 	struct net_flow_table *tables;
@@ -804,7 +855,7 @@ out:
 	return err;
 }
 
-int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct net_flow_flow **flows)
+int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flow **flows)
 {
 	struct net_flow_field_ref *matches;
 	struct net_flow_action *actions;
@@ -869,7 +920,7 @@ int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct net_flow_fl
 	return 0;
 }
 
-int flow_get_table_field(FILE *fp, bool p, struct nlattr *nl, struct net_flow_header *hdr)
+int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_header *hdr)
 {
 	struct nlattr *i;
 	struct nlattr *field[NET_FLOW_FIELD_ATTR_MAX+1];
@@ -906,7 +957,7 @@ int flow_get_table_field(FILE *fp, bool p, struct nlattr *nl, struct net_flow_he
 	return count;
 }
 
-int flow_get_headers(FILE *fp, bool p, struct nlattr *nl)
+int flow_get_headers(FILE *fp, int print, struct nlattr *nl)
 {
 	struct nlattr *i;
 	int rem;
@@ -935,21 +986,21 @@ int flow_get_headers(FILE *fp, bool p, struct nlattr *nl)
 			strdup(hdr[NET_FLOW_HEADER_ATTR_NAME] ?
 				nla_get_string(hdr[NET_FLOW_HEADER_ATTR_NAME]) : ""), IFNAMSIZ - 1);
 
-		flow_get_table_field(fp, p, hdr[NET_FLOW_HEADER_ATTR_FIELDS], header);
+		flow_get_table_field(fp, print, hdr[NET_FLOW_HEADER_ATTR_FIELDS], header);
 		headers[header->uid] = header;
-		pp_header(fp, p, header);
+		pp_header(fp, print, header);
 	}
 	return 0;
 }
 
-static int flow_get_jump(FILE *fp, bool p, struct nlattr *nl, struct net_flow_jump_table *ref)
+static int flow_get_jump(FILE *fp, int print, struct nlattr *nl, struct net_flow_jump_table *ref)
 {
 	*ref = *(struct net_flow_jump_table*) nla_data(nl);
-	pp_jump_table(fp, p, ref);
+	pp_jump_table(fp, print, ref);
 	return 0;
 }
 
-static int flow_get_jump_table(FILE *fp, bool p, struct nlattr *nl, struct net_flow_jump_table **ref)
+static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct net_flow_jump_table **ref)
 {
 	struct net_flow_jump_table *jump;
 	struct nlattr *i;
@@ -965,7 +1016,7 @@ static int flow_get_jump_table(FILE *fp, bool p, struct nlattr *nl, struct net_f
 
 	rem = nla_len(nl);
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); j++, i = nla_next(i, &rem))
-		flow_get_jump(stdout, p, i, &jump[j]);
+		flow_get_jump(fp, print, i, &jump[j]);
 
 	if (ref)
 		*ref = jump;
@@ -999,7 +1050,7 @@ static int flow_get_header_refs(struct nlattr *nl, net_flow_header_ref **ref)
 	return 0;
 }
 
-int flow_get_hdrs_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_header_node **ref)
+int flow_get_hdrs_graph(FILE *fp, int p, struct nlattr *nl, struct net_flow_header_node **ref)
 {
 	struct net_flow_header_node *nodes;
 	int rem, err, j;
@@ -1061,12 +1112,14 @@ int flow_get_hdrs_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_hea
 		graph_nodes[nodes[j].uid] = &nodes[j];
 	}	
 	pp_header_graph(stdout, p, nodes);
+	if (p == PRINT_GRAPHVIZ)
+		ppg_header_graph(stdout, p, nodes);
 	if (ref)
 		*ref = nodes;
 	return 0;
 }
 
-int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_table_graph_node **ref)
+int flow_get_tbl_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_table_graph_node **ref)
 {
 	struct net_flow_table_graph_node *nodes;
 	int rem, err, j;
@@ -1107,7 +1160,10 @@ int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_tabl
 			return -EINVAL;
 		}
 	}	
-	pp_table_graph(stdout, p, nodes);
+	if (print == PRINT_GRAPHVIZ)
+		ppg_table_graph(fp, print, nodes);
+	else if (print)
+		pp_table_graph(fp, print, nodes);
 	if (ref)
 		*ref = nodes;
 	else

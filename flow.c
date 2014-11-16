@@ -468,7 +468,7 @@ struct flow_msg *recv_flow_msg(int *err)
 	return msg;	
 }
 
-static void(*type_cb[NET_FLOW_CMD_MAX+1])(struct flow_msg *, int err) = {
+static void(*type_cb[NET_FLOW_CMD_MAX+1])(struct flow_msg *, int verbose) = {
 	flow_table_cmd_get_tables,
 	flow_table_cmd_get_headers,
 	flow_table_cmd_get_actions,
@@ -643,7 +643,7 @@ static void del_table_usage()
 	fprintf(stdout, "flow dev destroy source <id> [name <name> | id <id>]\n");
 }
 
-int flow_destroy_tbl_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
 	struct net_flow_table table = {0};
@@ -721,7 +721,7 @@ int flow_destroy_tbl_send(bool verbose, int pid, int family, int ifindex, int ar
 
 }
 
-int flow_create_tbl_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	struct nlattr *nest, *nest1;
 	struct net_flow_field_ref matches[MAX_MATCHES];
@@ -855,7 +855,7 @@ void del_flow_usage()
 	printf("flow dev del_flow handle <num> table <id>\n");
 }
 
-int flow_del_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_del_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	struct net_flow_flow flow = {0};
 	struct flow_msg *msg;
@@ -917,7 +917,7 @@ int flow_del_send(bool verbose, int pid, int family, int ifindex, int argc, char
 	return 0;
 }
 
-int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	struct net_flow_field_ref matches[MAX_MATCHES];
 	struct net_flow_action acts[MAX_ACTIONS];
@@ -1013,7 +1013,7 @@ int flow_set_send(bool verbose, int pid, int family, int ifindex, int argc, char
 	return 0;
 }
 
-int flow_send_recv(bool verbose, int pid, int family, int ifindex, int cmd, int tableid)
+int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd, int tableid)
 {
 	struct flow_msg *msg;
 
@@ -1053,9 +1053,9 @@ int main(int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
 	int family = -1, err, ifindex = 0, pid = 0;
+	int tableid = 0, verbose = 1;
 	bool resolve_names = true;
 	struct nl_sock *fd;
-	int tableid = 0;
 	int opt;
 	int args = 1;
 	char *ifname = NULL;
@@ -1065,7 +1065,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "i:p:f:h")) != -1) {
+	while ((opt = getopt(argc, argv, "i:p:f:hsg")) != -1) {
 		switch (opt) {
 		case 'h':
 			flow_usage();
@@ -1081,6 +1081,14 @@ int main(int argc, char **argv)
 		case 'i':
 			ifname = optarg;
 			args+=2;
+			break;
+		case 'g':
+			verbose = PRINT_GRAPHVIZ;
+			args++;
+			break;
+		case 's':
+			verbose = 0;
+			args++;
 			break;
 		}
 	}
@@ -1157,32 +1165,32 @@ int main(int argc, char **argv)
 	}
 
 	if (resolve_names) {
-		err = flow_send_recv(false, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS, 0);
 		if (err)
 			goto out;
-		err = flow_send_recv(false, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_ACTIONS, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_ACTIONS, 0);
 		if (err)
 			goto out;
-		err = flow_send_recv(false, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES, 0);
 		if (err)
 			goto out;
 	}
 
 	switch (cmd) {
 	case NET_FLOW_TABLE_CMD_SET_FLOWS:
-		flow_set_send(true, pid, family, ifindex, argc, argv);
+		flow_set_send(verbose, pid, family, ifindex, argc, argv);
 		break;
 	case NET_FLOW_TABLE_CMD_DEL_FLOWS:
-		flow_del_send(true, pid, family, ifindex, argc, argv);
+		flow_del_send(verbose, pid, family, ifindex, argc, argv);
 		break;
 	case NET_FLOW_TABLE_CMD_CREATE_TABLE:
-		flow_create_tbl_send(true, pid, family, ifindex, argc, argv);
+		flow_create_tbl_send(verbose, pid, family, ifindex, argc, argv);
 		break;
 	case NET_FLOW_TABLE_CMD_DESTROY_TABLE:
-		flow_destroy_tbl_send(true, pid, family, ifindex, argc, argv);
+		flow_destroy_tbl_send(verbose, pid, family, ifindex, argc, argv);
 		break;
 	default:
-		flow_send_recv(true, pid, family, ifindex, cmd, tableid);
+		flow_send_recv(verbose, pid, family, ifindex, cmd, tableid);
 		break;
 	}
 out:

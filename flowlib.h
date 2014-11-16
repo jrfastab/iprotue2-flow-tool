@@ -23,20 +23,22 @@
 
 *******************************************************************************/
 
-int flow_get_field(FILE *fp, bool print, struct nlattr *nl, struct net_flow_field_ref *ref);
-int flow_get_matches(FILE *fp, bool print, struct nlattr *nl, struct net_flow_field_ref **ref);
-int flow_get_action(FILE *fp, bool p, struct nlattr *nl, struct net_flow_action **a);
-int flow_get_actions(FILE  *fp, bool print, struct nlattr *nl, struct net_flow_action **actions);
-int flow_get_headers(FILE *fp, bool print, struct nlattr *nl);
-int flow_get_flows(FILE *fp, bool print, struct nlattr *attr, struct net_flow_flow **f);
-int flow_get_table(FILE *fp, bool print, struct nlattr *nl, struct net_flow_table *t);
-int flow_get_tables(FILE *fp, bool print, struct nlattr *nl, struct net_flow_table **t);
-int flow_get_table_field(FILE *fp, bool print, struct nlattr *nl, struct net_flow_header *hdr);
-int flow_get_tbl_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_table_graph_node **ref);
-int flow_get_hdrs_graph(FILE *fp, bool p, struct nlattr *nl, struct net_flow_header_node **ref);
+#define PRINT_GRAPHVIZ 2
+
+int flow_get_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref *ref);
+int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref **ref);
+int flow_get_action(FILE *fp, int p, struct nlattr *nl, struct net_flow_action *a);
+int flow_get_actions(FILE  *fp, int print, struct nlattr *nl, struct net_flow_action **actions);
+int flow_get_headers(FILE *fp, int print, struct nlattr *nl);
+int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flow **f);
+int flow_get_table(FILE *fp, int print, struct nlattr *nl, struct net_flow_table *t);
+int flow_get_tables(FILE *fp, int print, struct nlattr *nl, struct net_flow_table **t);
+int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_header *hdr);
+int flow_get_tbl_graph(FILE *fp, int p, struct nlattr *nl, struct net_flow_table_graph_node **ref);
+int flow_get_hdrs_graph(FILE *fp, int p, struct nlattr *nl, struct net_flow_header_node **ref);
 
 int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref);
-int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref);
+int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int type);
 int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref);
 int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *actions);
 int flow_put_headers(struct nl_msg *nlbuf, struct net_flow_header **header);
@@ -56,12 +58,12 @@ void flow_push_header_fields(struct net_flow_header **h);
 int find_match(char *header, char *field, int *hi, int *li);
 int find_action(char *name);
 
-void pp_action(FILE *fp, bool p, struct net_flow_action *ref);
-void pp_table(FILE *fp, bool p, struct net_flow_table *ref);
-void pp_header(FILE *fp, bool p, struct net_flow_header *ref);
-void pp_flows(FILE *fp, bool p, struct net_flow_flow *ref);
-void pp_flow(FILE *fp, bool p, struct net_flow_flow *ref);
-void pp_table_graph(FILE *fp, bool p, struct net_flow_table_graph_node *nodes);
+void pp_action(FILE *fp, int p, struct net_flow_action *ref);
+void pp_table(FILE *fp, int p, struct net_flow_table *ref);
+void pp_header(FILE *fp, int p, struct net_flow_header *ref);
+void pp_flows(FILE *fp, int p, struct net_flow_flow *ref);
+void pp_flow(FILE *fp, int p, struct net_flow_flow *ref);
+void pp_table_graph(FILE *fp, int p, struct net_flow_table_graph_node *nodes);
 
 struct net_flow_header *get_headers(int uid);
 struct net_flow_field *get_fields(int huid, int uid);
@@ -69,7 +71,7 @@ struct net_flow_table *get_tables(int uid);
 struct net_flow_action *get_actions(int uid);
 
 char *headers_names(int uid);
-char *fields_names(int uid);
+char *fields_names(int hid, int uid);
 char *tables_names(int uid);
 char *action_names(int uid);
 
