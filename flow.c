@@ -1174,6 +1174,9 @@ int main(int argc, char **argv)
 		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES, 0);
 		if (err)
 			goto out;
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH, 0);
+		if (err)
+			goto out;
 	}
 
 	switch (cmd) {
