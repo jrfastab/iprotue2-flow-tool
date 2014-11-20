@@ -646,7 +646,7 @@ static void del_table_usage()
 int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
-	struct net_flow_table table = {0};
+	struct net_flow_table table = {.name = "", .uid = 0};
 	struct nlattr *nest, *nest1;
 	struct flow_msg *msg;
 	int err = 0;
