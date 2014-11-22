@@ -185,8 +185,10 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 	}
 
 	if (!tb[valid]){
-		fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", valid);
-		return -EINVAL;
+		if (p) {
+			fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", valid);
+		}
+		return -ENOMSG;
 	}
 
 	type = nla_get_u32(tb[NET_FLOW_IDENTIFIER_TYPE]);
@@ -323,8 +325,17 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		return;
 	}
 
-	if (flow_table_cmd_to_type(stdout, false, NET_FLOW_FLOWS, tb))
+	err = flow_table_cmd_to_type(stdout, false, NET_FLOW_FLOWS, tb)
+	if (err == -ENOMSG) {
+		fprintf(stdout, "Table empty\n");
 		return;
+	} else if (err) {
+		fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", NET_FLOW_FLOWS);
+		return;
+	} else
+		printf("OK");
+
+
 
 	if (tb[NET_FLOW_FLOWS])
 		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
