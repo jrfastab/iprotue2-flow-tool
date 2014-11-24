@@ -57,6 +57,7 @@ void flow_push_header_fields(struct net_flow_header **h);
 
 int find_match(char *header, char *field, int *hi, int *li);
 int find_action(char *name);
+int find_table(char *name);
 
 void pp_action(FILE *fp, int p, struct net_flow_action *ref);
 void pp_table(FILE *fp, int p, struct net_flow_table *ref);

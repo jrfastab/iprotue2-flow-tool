@@ -142,6 +142,18 @@ struct net_flow_action *get_actions(int uid)
 	return actions[uid];
 }
 
+int find_table(char *name)
+{
+	int i;
+
+	for (i = 0; i < MAX_TABLES; i++) {
+		if (tables[i] && strcmp(table_names(i), name) == 0)
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 int find_action(char *name)
 {
 	int i;

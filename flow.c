@@ -325,17 +325,14 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		return;
 	}
 
-	err = flow_table_cmd_to_type(stdout, false, NET_FLOW_FLOWS, tb)
+	err = flow_table_cmd_to_type(stdout, false, NET_FLOW_FLOWS, tb);
 	if (err == -ENOMSG) {
 		fprintf(stdout, "Table empty\n");
 		return;
 	} else if (err) {
 		fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", NET_FLOW_FLOWS);
 		return;
-	} else
-		printf("OK");
-
-
+	}
 
 	if (tb[NET_FLOW_FLOWS])
 		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
@@ -1070,6 +1067,8 @@ int main(int argc, char **argv)
 	int opt;
 	int args = 1;
 	char *ifname = NULL;
+	char *tablestr;
+	char *endptr;
 
 	if (argc < 2) {
 		flow_usage();
@@ -1123,7 +1122,9 @@ int main(int argc, char **argv)
 				flow_usage();
 				return -1;
 			}
-			tableid = atoi(argv[args+1]);
+			tableid = strtol(argv[args+1], &endptr, 0);
+			if (tableid <= 0)
+				tablestr = argv[args+1];
 		} else if (strcmp(argv[args], "set_flow") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
 		} else if (strcmp(argv[args], "del_flow") == 0) {
@@ -1202,6 +1203,14 @@ int main(int argc, char **argv)
 		break;
 	case NET_FLOW_TABLE_CMD_DESTROY_TABLE:
 		flow_destroy_tbl_send(verbose, pid, family, ifindex, argc, argv);
+		break;
+	case NET_FLOW_TABLE_CMD_GET_FLOWS:
+		if (tableid <= 0) {
+			tableid = find_table(tablestr);	
+			if (tableid < 0)
+			exit (-1);
+		}
+		flow_send_recv(verbose, pid, family, ifindex, cmd, tableid);
 		break;
 	default:
 		flow_send_recv(verbose, pid, family, ifindex, cmd, tableid);
