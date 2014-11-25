@@ -1504,7 +1504,7 @@ int flow_put_tables(struct nl_msg *nlbuf, struct net_flow_table *ref)
 	if (!nest)
 		return -EMSGSIZE;
 
-	for (i = 0; i < ref[i].uid; i++) {
+	for (i = 0; ref[i].uid > 0; i++) {
 		t = nla_nest_start(nlbuf, NET_FLOW_TABLE);
 		err = flow_put_table(nlbuf, &ref[i]);
 		if (err)
