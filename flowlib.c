@@ -208,7 +208,7 @@ void flow_push_actions(struct net_flow_action **a)
 		actions[a[i]->uid] = a[i];	
 }
 
-void flow_push_tables(struct net_flow_table *t) /* TBD: unify table list with headers/actions */
+void flow_push_tables(struct net_flow_table *t)
 {
 	int i;
 
@@ -216,6 +216,13 @@ void flow_push_tables(struct net_flow_table *t) /* TBD: unify table list with he
 		tables[t[i].uid] = &t[i];	
 }
 
+void flow_pop_tables(struct net_flow_table *t)
+{
+	int i;
+
+	for (i = 0; t[i].uid; i++)
+		free(tables[t[i].uid]);
+}
 void flow_push_header_fields(struct net_flow_header **h)
 {
 	int i, j;
@@ -340,46 +347,49 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 	int hi = ref->header;
 	int fi = ref->field;
 
+	if (!hi)
+		return;
+
 	if (!ref->type) {
 		if (!ref->header && !ref->field) {
 			pfprintf(fp, print, "\t <any>");
 			if (e)
 				agsafeset(e, "label", "<any>", "");
 		} else if (!first) {
-			pfprintf(fp, print, " %s", fields_names(hi, fi));
+			pfprintf(fp, print, " %s", fi ? fields_names(hi, fi) : "");
 			if (e)
-				agsafeset(e, "label", fields_names(hi, fi), "");
+				agsafeset(e, "label", fi ? fields_names(hi, fi) : "", "");
 		} else {
 			pfprintf(fp, print, "\n\t field: %s [%s",
-				 graph_names(inst), fields_names(hi, fi));
+				 graph_names(inst), fi ? fields_names(hi, fi) : "");
 			if (e)
-				agsafeset(e, "label", fields_names(hi, fi), "");
+				agsafeset(e, "label", fi ? fields_names(hi, fi) : "", "");
 		}
 	}
 
 	switch (ref->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %02x (%02x)",
-			headers_names(hi), fields_names(hi, fi), ref->value_u8, ref->mask_u8);
+			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u8, ref->mask_u8);
 
 		if (e)
 			agsafeset(e, "label", fieldstr, "");
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %04x (%04x)",
-			headers_names(hi), fields_names(hi, fi), ref->value_u16, ref->mask_u16);
+			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u16, ref->mask_u16);
 		if (e)
 			agsafeset(e, "label", fieldstr, "");
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %08x (%08x)",
-			headers_names(hi), fields_names(hi, fi), ref->value_u32, ref->mask_u32);
+			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u32, ref->mask_u32);
 		if (e)
 			agsafeset(e, "label", fieldstr, "");
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%016x)",
-			 headers_names(hi), fields_names(hi, fi),
+			 headers_names(hi), fi ? fields_names(hi, fi) : "",
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
 			 ref->mask_u64);
 		if (e)
@@ -427,7 +437,7 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 	struct net_flow_action_arg *arg;
 	int i;
 
-	pfprintf(fp, print, "\t   %i: %s ( ", act->uid, act->name);
+	pfprintf(fp, print, "\t   %i: %s ( ", act->uid, act->name ? act->name : "");
 
 	if (!act->args)
 		goto out;
@@ -926,8 +936,8 @@ out:
 
 int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flow **flows)
 {
-	struct net_flow_field_ref *matches;
-	struct net_flow_action *actions;
+	struct net_flow_field_ref *matches = NULL;
+	struct net_flow_action *actions = NULL;
 	struct net_flow_flow  *f;
 	struct nlattr *i;
 	int err, rem, count = 0;;

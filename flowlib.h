@@ -51,9 +51,10 @@ int flow_put_header_graph(struct nl_msg *nlbuf, struct net_flow_header_node **g)
 
 void flow_push_headers(struct net_flow_header **h);
 void flow_push_actions(struct net_flow_action **a);
-void flow_push_tables(struct net_flow_table *t); /* TBD: unify table list with headers/actions */
+void flow_push_tables(struct net_flow_table *t);
 void flow_push_header_fields(struct net_flow_header **h);
 
+void flow_pop_tables(struct net_flow_table *t);
 
 int find_match(char *header, char *field, int *hi, int *li);
 int find_action(char *name);
