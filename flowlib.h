@@ -29,7 +29,7 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_field
 int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref **ref);
 int flow_get_action(FILE *fp, int p, struct nlattr *nl, struct net_flow_action *a);
 int flow_get_actions(FILE  *fp, int print, struct nlattr *nl, struct net_flow_action **actions);
-int flow_get_headers(FILE *fp, int print, struct nlattr *nl);
+int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_header **headers);
 int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flow **f);
 int flow_get_table(FILE *fp, int print, struct nlattr *nl, struct net_flow_table *t);
 int flow_get_tables(FILE *fp, int print, struct nlattr *nl, struct net_flow_table **t);

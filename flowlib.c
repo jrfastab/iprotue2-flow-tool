@@ -1026,12 +1026,20 @@ int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow
 	return count;
 }
 
-int flow_get_headers(FILE *fp, int print, struct nlattr *nl)
+int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_header **hdrs)
 {
+	struct net_flow_header *h;
 	struct nlattr *i;
-	int rem;
+	int rem, count = 0;
 
 	rem = nla_len(nl);
+	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
+		count++;
+
+	h = calloc(count + 1, sizeof(struct net_flow_header));
+
+	rem = nla_len(nl);
+	count = 0;
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem)) {
 		struct nlattr *hdr[NET_FLOW_HEADER_ATTR_MAX+1];
 		struct net_flow_header *header;
@@ -1058,7 +1066,15 @@ int flow_get_headers(FILE *fp, int print, struct nlattr *nl)
 		flow_get_table_field(fp, print, hdr[NET_FLOW_HEADER_ATTR_FIELDS], header);
 		headers[header->uid] = header;
 		pp_header(fp, print, header);
+		h[count] = *header;
+		count++;
 	}
+
+	if (hdrs)
+		*hdrs = h;
+	else
+		free(h);
+
 	return 0;
 }
 

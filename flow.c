@@ -242,7 +242,7 @@ static void flow_table_cmd_get_headers(struct flow_msg *msg, int verbose)
 		return;
 
 	if (tb[NET_FLOW_HEADERS])
-		flow_get_headers(stdout, verbose, tb[NET_FLOW_HEADERS]);
+		flow_get_headers(stdout, verbose, tb[NET_FLOW_HEADERS], NULL);
 }
 
 static void flow_table_cmd_get_actions(struct flow_msg *msg, int verbose)
