@@ -881,7 +881,6 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 
 	t->matches = matches;
 	t->actions = actions; 
-	t->flows = NULL;
 
 	tables[uid] = t;
 	pp_table(fp, print, t);
