@@ -404,8 +404,6 @@ static void flow_table_cmd_destroy_table(struct flow_msg *msg, int verbose)
 		fprintf(stderr, "Warning unable to parse destroy table msg\n");
 		return;
 	}
-
-	fprintf(stderr, "destroy table cmd not supported\n");
 }
 
 struct flow_msg *recv_flow_msg(int *err)
@@ -686,6 +684,7 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 		else
 			fprintf(stderr, "Unknown table id %i\n", table.uid);
 
+		del_table_usage();
 		exit(-1);
 	}
 
