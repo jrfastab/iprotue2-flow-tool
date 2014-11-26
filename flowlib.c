@@ -186,7 +186,7 @@ int find_match(char *header, char *field, int *hi, int *li)
 		}
 	}
 
-	if (hi < 0 || li < 0)
+	if (*hi < 0 || *li < 0)
 		return -EINVAL;
 
 	return 0;
