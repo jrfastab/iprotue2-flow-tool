@@ -555,16 +555,16 @@ int get_match_arg(int argc, char **argv, bool need_value,
 		return advance;
 
 	NEXT_ARG();
-	if (field->bitwidth < 8) { /* TBD we need a type field */
+	if (field->bitwidth <= 8) { /* TBD we need a type field */
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
 		err = sscanf(*argv, "%" PRIu8 "", &match->value_u8);
-	} else if (field->bitwidth < 16) {
+	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 		err = sscanf(*argv, "%" PRIu16 "", &match->value_u16);
-	} else if (field->bitwidth < 32) {
+	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
 		err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
-	} else if (field->bitwidth < 64) {
+	} else if (field->bitwidth <= 64) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
 		match->value_u64 = strtoll(*argv, &endptr, 0);
 	}
