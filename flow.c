@@ -582,8 +582,13 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		if (err != 1)
 			err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
 	} else if (field->bitwidth <= 64) {
+		errno = 0;
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
 		match->value_u64 = strtoll(*argv, &endptr, 0);
+		if (errno)
+			err = -EINVAL;
+		else
+			err = 1;
 	}
 	advance++;
 
@@ -608,9 +613,17 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 			err = sscanf(*argv, "%" PRIu32 "", &match->mask_u32);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
+		errno = 0;
 		match->mask_u64 = strtoll(*argv, &endptr, 0);
+		if (errno)
+			err = -EINVAL;
+		else
+			err = 1;
 		break;
 	}
+
+	if (err != 1)
+		return err;
 
 	advance++;
 	return advance;
@@ -621,7 +634,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 {
 	struct net_flow_action *a;
 	int i, reqs_args = 0;
-	int advance = 0;
+	int err, advance = 0;
 	char *endptr;
 
 	NEXT_ARG();
@@ -655,20 +668,34 @@ int get_action_arg(int argc, char **argv, bool need_args,
 
 		switch (a->args[i].type) {
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			action->args[i].value_u8 = 0;
+			err = sscanf(*argv, "0x%02x", &action->args[i].value_u8);
+			if (err != 1)
+				err = sscanf(*argv, "%" PRIu8 "", &action->args[i].value_u8);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			action->args[i].value_u16 = 0;
+			err = sscanf(*argv, "0x%04x", &action->args[i].value_u16);
+			if (err != 1)
+				err = sscanf(*argv, "%" PRIu16 "", &action->args[i].value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			action->args[i].value_u32 = atoi(*argv); 
+			err = sscanf(*argv, "0x%08x", &action->args[i].value_u32);
+			if (err != 1)
+				err = sscanf(*argv, "%" PRIu32 "", &action->args[i].value_u32);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
+			errno = 0;
 			action->args[i].value_u64 = strtol(*argv, &endptr, 10);
+			if (errno)
+				err = -EINVAL;
+			else
+				err = 1;
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 			break;
 		}
+
+		if (err != 1)
+			return -EINVAL;
 	}
 
 done:
