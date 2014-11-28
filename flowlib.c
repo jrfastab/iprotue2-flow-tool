@@ -42,7 +42,7 @@
 #include <libnl3/netlink/genl/ctrl.h>
 #include <libnl3/netlink/route/link.h>
 
-#include <linux/if_flow.h>
+#include "if_flow.h"
 #include <linux/if_ether.h>
 
 #include <gvc.h>
@@ -297,7 +297,6 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 	[NET_FLOW_TABLE_ATTR_SIZE]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_MATCHES]	= { .type = NLA_NESTED },
 	[NET_FLOW_TABLE_ATTR_ACTIONS]	= { .type = NLA_NESTED },
-	[NET_FLOW_TABLE_ATTR_FLOWS]	= { .type = NLA_NESTED },
 };
 
 struct nla_policy net_flow_action_policy[NET_FLOW_ACTION_ATTR_MAX + 1] = {
@@ -364,6 +363,17 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 				 graph_names(inst), fi ? fields_names(hi, fi) : "");
 			if (e)
 				agsafeset(e, "label", fi ? fields_names(hi, fi) : "", "");
+		}
+
+		switch (ref->mask_type) {
+		case NET_FLOW_MASK_TYPE_EXACT:
+			pfprintf(fp, print, " (exact)");
+			break;
+		case NET_FLOW_MASK_TYPE_LPM:
+			pfprintf(fp, print, " (lpm)");
+			break;
+		default:
+			break;
 		}
 	}
 

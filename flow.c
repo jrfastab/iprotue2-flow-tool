@@ -524,7 +524,7 @@ void set_flow_usage()
 
 #define NEXT_ARG() do { argv++; if (--argc <= 0) break; } while(0)
 
-int get_match_arg(int argc, char **argv, bool need_value,
+int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		  struct net_flow_field_ref *match)
 {
 	char *strings, *s_hdr, *s_fld, *endptr;
@@ -551,29 +551,68 @@ int get_match_arg(int argc, char **argv, bool need_value,
 	if (!field)
 		return -EINVAL;
 
+	if (need_mask_type) {
+		advance++;
+		NEXT_ARG();
+		if (strcmp(*argv, "lpm") == 0)
+			match->mask_type = NET_FLOW_MASK_TYPE_LPM;
+		else if (strcmp(*argv, "exact") == 0)
+			match->mask_type = NET_FLOW_MASK_TYPE_EXACT;
+		else
+			return -EINVAL;
+	}
+
 	if (!need_value)
 		return advance;
 
 	NEXT_ARG();
-	if (field->bitwidth <= 8) { /* TBD we need a type field */
+	if (field->bitwidth <= 8) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
-		err = sscanf(*argv, "%" PRIu8 "", &match->value_u8);
+		err = sscanf(*argv, "0x%02x", &match->value_u8);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu8 "", &match->value_u8);
 	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
-		err = sscanf(*argv, "%" PRIu16 "", &match->value_u16);
+		err = sscanf(*argv, "0x%04x" PRIu16 "", &match->value_u16);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu16 "", &match->value_u16);
 	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
-		err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
+		err = sscanf(*argv, "0x%08x" PRIu32 "", &match->value_u32);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
 	} else if (field->bitwidth <= 64) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
 		match->value_u64 = strtoll(*argv, &endptr, 0);
 	}
 	advance++;
 
-	if (err)
+	if (err != 1)
 		return err;
 
-	/* TBD mask */
+	NEXT_ARG(); /* need a mask if its not an exact match */
+	switch (match->type) {
+	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
+		err = sscanf(*argv, "0x%02x", &match->mask_u8);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu8 "", &match->mask_u8);
+		break;
+	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
+		err = sscanf(*argv, "0x%04x", &match->mask_u16);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu16 "", &match->mask_u16);
+		break;
+	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
+		err = sscanf(*argv, "0x%08x", &match->mask_u32);
+		if (err != 1)
+			err = sscanf(*argv, "%" PRIu32 "", &match->mask_u32);
+		break;
+	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
+		match->mask_u64 = strtoll(*argv, &endptr, 0);
+		break;
+	}
+
+	advance++;
 	return advance;
 }
 
@@ -641,7 +680,10 @@ done:
 
 static void set_table_usage()
 {
-	fprintf(stdout, "flow dev create source <id> name <name> [id <id>] size <size> [match ...] [action ...]\n");
+	fprintf(stdout, "\nflow dev create source <id> name <name> [id <id>] size <size> [match ...] [action ...]\n");
+	fprintf(stdout, "     match : [header_instance].[field] [mask_type]\n");
+	fprintf(stdout, "     mask_type : lpm|exact\n");
+	fprintf(stdout, "     action : action_name\n");
 }
 
 static void del_table_usage()
@@ -748,7 +790,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 	opterr = 0;
 	while (argc > 0) {
 		if (strcmp(*argv, "match") == 0) {
-			advance = get_match_arg(argc, argv, false, &matches[match_count]);
+			advance = get_match_arg(argc, argv, false, true, &matches[match_count]);
 			if (advance < 0)
 				break;
 			match_count++;
@@ -808,6 +850,12 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 
 	if (!table.matches[0].header) {
 		fprintf(stderr, "Table has NULL <match> specifier. Aborting this doesn't appear useful\n");
+		set_table_usage();
+		exit(-1);
+	}
+
+	if (!table.matches[0].mask_type) {
+		fprintf(stderr, "Table has missing mask_type specifier. Valid entries (lpm, exact). Aborting.\n");
 		set_table_usage();
 		exit(-1);
 	}
@@ -945,7 +993,7 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	opterr = 0;
 	while (argc > 0) {
 		if (strcmp(*argv, "match") == 0) {
-			advance = get_match_arg(argc, argv, true, &matches[match_count]);
+			advance = get_match_arg(argc, argv, true, false, &matches[match_count]);
 			if (advance < 0)
 				break;
 			match_count++;
@@ -1066,7 +1114,7 @@ int main(int argc, char **argv)
 	int opt;
 	int args = 1;
 	char *ifname = NULL;
-	char *tablestr;
+	char *tablestr = NULL;
 	char *endptr;
 
 	if (argc < 2) {
