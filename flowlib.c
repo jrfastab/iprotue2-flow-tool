@@ -42,7 +42,7 @@
 #include <libnl3/netlink/genl/ctrl.h>
 #include <libnl3/netlink/route/link.h>
 
-#include "if_flow.h"
+#include <linux/if_flow.h>
 #include <linux/if_ether.h>
 
 #include <gvc.h>
@@ -1009,6 +1009,11 @@ int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flo
 	return 0;
 }
 
+int flow_get_flow_errors(FILE *fp, int print, struct nlattr *nla)
+{
+	return nla_get_u32(nla);
+}
+
 int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_header *hdr)
 {
 	struct nlattr *i;
@@ -1422,10 +1427,15 @@ int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int t
 	return 0;
 }
 
+int flow_put_flow_error(struct nl_msg *nlbuf, int err)
+{
+	return nla_put_u32(nlbuf, NET_FLOW_FLOWS_ERROR, err);
+}
+
 int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 {
 	int err;
-	struct nlattr *flow;
+	struct nlattr *flow, *actions;
 
 	flow = nla_nest_start(nlbuf, NET_FLOW_FLOW);
 	if (!flow)
@@ -1442,9 +1452,18 @@ int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 	}
 
 	if (ref->actions) {
-		err = flow_put_actions(nlbuf, ref->actions);
-		if (err)
-			return err;
+		int i;
+
+		actions = nla_nest_start(nlbuf, NET_FLOW_ATTR_ACTIONS);
+		if (!actions)
+			return -EMSGSIZE;
+		
+		for (i = 0; ref->actions[i].uid; i++) {
+			err = flow_put_action(nlbuf, &ref->actions[i]);
+			if (err)
+				return err;
+		}
+		nla_nest_end(nlbuf, actions);
 	}
 
 	nla_nest_end(nlbuf, flow);

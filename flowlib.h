@@ -37,6 +37,8 @@ int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow
 int flow_get_tbl_graph(FILE *fp, int p, struct nlattr *nl, struct net_flow_table_graph_node **ref);
 int flow_get_hdrs_graph(FILE *fp, int p, struct nlattr *nl, struct net_flow_header_node **ref);
 
+int flow_get_flow_errors(FILE *fp, int print, struct nlattr *nl);
+
 int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref);
 int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int type);
 int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref);
@@ -44,6 +46,7 @@ int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *actions);
 int flow_put_headers(struct nl_msg *nlbuf, struct net_flow_header **header);
 int flow_put_flows(struct nl_msg *nlbuf, struct net_flow_flow *flow);
 int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref);
+int flow_put_flow_error(struct nl_msg *nlbuf, int err);
 int flow_put_table(struct nl_msg *nlbuf, struct net_flow_table *t);
 int flow_put_tables(struct nl_msg *nlbuf, struct net_flow_table *t);
 int flow_put_table_graph(struct nl_msg *nlbuf, struct net_flow_table_graph_nodes *ref);

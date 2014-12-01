@@ -121,7 +121,6 @@ void handle_flow_table_get_tables(struct flow_msg *amsg, struct flow_msg *msg, i
 		fprintf(stderr, "Netlink request error: %s\n", strerror(err));
 		return;
 	}
-	printf("got reply what is it?\n");
 }
 
 struct flow_msg *wrap_netlink_msg(struct nlmsghdr *buf)
@@ -176,21 +175,23 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 	char iface[IFNAMSIZ];
 
 	if (!tb[NET_FLOW_IDENTIFIER_TYPE]) {
-		fprintf(stderr, "Warning: received get_tables without identifier type!\n");
+		fprintf(stderr, "Warning: received flow msg without identifier type!\n");
 		return -EINVAL;
 	}
 	if (!tb[NET_FLOW_IDENTIFIER]) {
-		fprintf(stderr, "Warning: received get_tables without identifier!\n");
+		fprintf(stderr, "Warning: received flow msg without identifier!\n");
 		return -EINVAL;
 	}
 
-	if (!tb[valid]){
-		if (p) {
-			fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", valid);
-		}
+	if (valid > 0 && !tb[valid]){
+		fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", valid);
 		return -ENOMSG;
 	}
 
+	if (nla_len(tb[NET_FLOW_IDENTIFIER_TYPE]) < sizeof(type)) {
+		fprintf(stderr, "Warning invalid identifier type len\n");
+		return -EINVAL;
+	}
 	type = nla_get_u32(tb[NET_FLOW_IDENTIFIER_TYPE]);
 
 	switch (type) {
@@ -200,7 +201,7 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 		pfprintf(fp, p, "%s (%i):\n", iface, ifindex);
 		break;
 	default:
-		fprintf(stderr, "Unknown table identifier, abort\n");
+		fprintf(stderr, "Unknown interface identifier type %i, abort\n", type);
 		return -EINVAL;
 	}
 
@@ -338,6 +339,14 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
 }
 
+void handle_flow_set_error(struct flow_msg *amsg, struct flow_msg *msg, int err)
+{
+	if (err)
+		fprintf(stderr, "Error, set flow aborted: %s\n", strerror(err));
+
+	return;
+}
+
 static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
@@ -348,6 +357,17 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 	if (err < 0) {
 		fprintf(stderr, "Warning unable to parse set flows msg\n");
 		return;
+	}
+
+	err = flow_table_cmd_to_type(stdout, false, -1, tb);
+	if (err)
+		return;
+
+	if (tb[NET_FLOW_FLOWS]) {
+		fprintf(stderr, "Failed to set:\n");
+		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
+	} else {
+		fprintf(stderr, "Completed sucessfully\n");
 	}
 }
 
@@ -1082,13 +1102,17 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 		return -EMSGSIZE;
 	}
 
+	err = flow_put_flow_error(msg->nlbuf, NET_FLOW_FLOWS_ERROR_CONT_LOG);
+	if (err)
+		return err;
+
 	flows = nla_nest_start(msg->nlbuf, NET_FLOW_FLOWS);
 	if (!flows)
 		return -EMSGSIZE;
 	flow_put_flow(msg->nlbuf, &flow);
 	nla_nest_end(msg->nlbuf, flows);
 
-	set_ack_cb(msg, handle_flow_table_get_tables);
+	set_ack_cb(msg, handle_flow_set_error);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
