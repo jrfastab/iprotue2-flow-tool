@@ -1216,7 +1216,7 @@ int main(int argc, char **argv)
 			cmd = NET_FLOW_TABLE_CMD_GET_TABLE_GRAPH;
 		} else if (strcmp(argv[args], "get_flows") == 0) {
 			cmd = NET_FLOW_TABLE_CMD_GET_FLOWS;
-			if (argc < 4) {
+			if (args + 1 >= argc) {
 				flow_usage();
 				return -1;
 			}
