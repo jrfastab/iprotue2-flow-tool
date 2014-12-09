@@ -184,7 +184,7 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 	}
 
 	if (valid > 0 && !tb[valid]){
-		fprintf(stderr, "Warning recevied cmd without valid attribute expected %i\n", valid);
+		fprintf(stderr, "Warning received cmd without valid attribute expected %i\n", valid);
 		return -ENOMSG;
 	}
 
