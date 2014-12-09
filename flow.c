@@ -326,7 +326,7 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		return;
 	}
 
-	err = flow_table_cmd_to_type(stdout, false, NET_FLOW_FLOWS, tb);
+	err = flow_table_cmd_to_type(stdout, false, 0, tb);
 	if (err == -ENOMSG) {
 		fprintf(stdout, "Table empty\n");
 		return;
