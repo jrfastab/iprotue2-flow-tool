@@ -44,10 +44,10 @@
 #include <libnl3/netlink/genl/ctrl.h>
 #include <libnl3/netlink/route/link.h>
 
-#include <linux/if_flow.h>
 #include <linux/if_ether.h>
 
-#include "flowlib.h"
+#include "include/if_flow.h"
+#include "include/flowlib.h"
 
 static struct nl_sock *nsd;
 
@@ -821,7 +821,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 {
 	struct nlattr *nest, *nest1;
 	struct net_flow_field_ref matches[MAX_MATCHES];
-	net_flow_action_ref acts[MAX_ACTIONS];
+	int acts[MAX_ACTIONS];
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
 	int err = 0, advance = 0;
@@ -1208,7 +1208,7 @@ int main(int argc, char **argv)
 			resolve_names = false;
 			cmd = NET_FLOW_TABLE_CMD_GET_HEADERS;
 		} else if (strcmp(argv[args], "get_header_graph") == 0) {
-			cmd = NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH;
+			cmd = NET_FLOW_TABLE_CMD_GET_HDR_GRAPH;
 		} else if (strcmp(argv[args], "get_actions") == 0) {
 			resolve_names = false;
 			cmd = NET_FLOW_TABLE_CMD_GET_ACTIONS;
@@ -1284,7 +1284,7 @@ int main(int argc, char **argv)
 		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES, 0);
 		if (err)
 			goto out;
-		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HDR_GRAPH, 0);
 		if (err)
 			goto out;
 	}
