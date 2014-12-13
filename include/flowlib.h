@@ -62,6 +62,8 @@ void flow_pop_tables(struct net_flow_table *t);
 int find_match(char *header, char *field, int *hi, int *li);
 int find_action(char *name);
 int find_table(char *name);
+int find_header_node(char *name);
+int find_field(char *name, int hdr);
 
 void pp_action(FILE *fp, int p, struct net_flow_action *ref);
 void pp_table(FILE *fp, int p, struct net_flow_table *ref);
@@ -74,6 +76,7 @@ struct net_flow_header *get_headers(int uid);
 struct net_flow_field *get_fields(int huid, int uid);
 struct net_flow_table *get_tables(int uid);
 struct net_flow_action *get_actions(int uid);
+struct net_flow_hdr_node *get_graph_node(int uid);
 
 char *headers_names(int uid);
 char *fields_names(int hid, int uid);

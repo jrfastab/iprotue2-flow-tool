@@ -547,26 +547,54 @@ void set_flow_usage()
 int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		  struct net_flow_field_ref *match)
 {
-	char *strings, *s_hdr, *s_fld, *endptr;
+	char *strings, *instance, *s_fld, *endptr;
+	struct net_flow_hdr_node *hdr_node;
 	struct net_flow_field *field;
-	int advance = 0, err;
+	int advance = 0, err = 0;
 
 	NEXT_ARG();
 	strings = *argv;
 	advance++;
 
-	s_hdr = strtok(strings, ".");
-	if (!s_hdr)
+	/* We use the instance name followed by the field in that instance
+	 * to setup a flow rule. The instance name must be used to avoid
+	 * ambiguity when a packet parser can support multiple stacked
+	 * headers or tunnels and other such packets with multiples of the
+	 * same header. This means here we have to unwind the string name
+	 * from the user into a correct header_node and field nodes.
+	 */
+	instance = strtok(strings, ".");
+	if (!instance)
 		return -EINVAL;
 
 	s_fld = strtok(NULL, ".");
 	if (!s_fld)
 		return -EINVAL;
 
-	err = find_match(s_hdr, s_fld, &match->header, &match->field);
-	if (err < 0)
+	match->instance = find_header_node(instance);
+	if (match->instance < 0)
 		return -EINVAL;
-			
+
+	hdr_node = get_graph_node(match->instance);	
+	if (!hdr_node) /* with an abundance of caution */
+		return -EINVAL;
+
+	/* For now only support parsing single header per node. Its not
+	 * very clera what it means to support multiple header types or
+	 * how we would infere the correct one. It might be best to
+	 * codify the single header _only_ case. Also we require that
+	 * hdrs be a valid pointer. Being overly cautious we check for
+	 * it though.
+	 */ 
+
+	if (!hdr_node->hdrs)
+		return -EINVAL;
+
+	match->header = hdr_node->hdrs[0];
+	match->field = find_field(s_fld, match->header);
+	if (match->field < 0)
+		return -EINVAL;
+
 	field = get_fields(match->header, match->field);
 	if (!field)
 		return -EINVAL;

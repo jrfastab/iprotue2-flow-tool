@@ -70,6 +70,11 @@ char *graph_names(int uid)
 	return graph_nodes[uid] ? graph_nodes[uid]->name : "<none>";
 }
 
+struct net_flow_hdr_node *get_graph_node(int uid)
+{
+	return graph_nodes[uid];
+}
+
 char *headers_names(int uid)
 {
 	return headers[uid] ? headers[uid]->name : "<none>";
@@ -163,6 +168,32 @@ int find_action(char *name)
 		if (actions[i] && strcmp(action_names(i), name) == 0) {
 			return i;
 		}
+	}
+	return -EINVAL;
+}
+
+int find_header_node(char *name)
+{
+	int i;
+
+	for (i = 0; i < MAX_NODES; i++) {
+		if (graph_nodes[i] && strcmp(graph_names(i), name) == 0)
+			return i;
+	}
+	return -EINVAL;
+}
+
+int find_field(char *field, int hdr)
+{
+	struct net_flow_header *header;
+	int i;
+
+	header = get_headers(hdr);
+
+	for (i = 0; i < MAX_FIELDS; i++) {
+		if (header->fields[i].uid &&
+		    strcmp(header->fields[i].name, field) == 0)
+			return i;
 	}
 	return -EINVAL;
 }
