@@ -154,7 +154,7 @@ int find_table(char *name)
 
 	for (i = 0; i < MAX_TABLES; i++) {
 		if (tables[i] && strcmp(table_names(i), name) == 0)
-			return i;
+			return tables[i]->uid;
 	}
 
 	return -EINVAL;
@@ -166,7 +166,7 @@ int find_action(char *name)
 
 	for (i = 0; i < MAX_ACTIONS; i++) {
 		if (actions[i] && strcmp(action_names(i), name) == 0) {
-			return i;
+			return actions[i]->uid;
 		}
 	}
 	return -EINVAL;
@@ -178,7 +178,7 @@ int find_header_node(char *name)
 
 	for (i = 0; i < MAX_NODES; i++) {
 		if (graph_nodes[i] && strcmp(graph_names(i), name) == 0)
-			return i;
+			return graph_nodes[i]->uid;
 	}
 	return -EINVAL;
 }
@@ -193,7 +193,7 @@ int find_field(char *field, int hdr)
 	for (i = 0; i < MAX_FIELDS; i++) {
 		if (header->fields[i].uid &&
 		    strcmp(header->fields[i].name, field) == 0)
-			return i;
+			return header->fields[i].uid;
 	}
 	return -EINVAL;
 }
