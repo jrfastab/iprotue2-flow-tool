@@ -19,8 +19,8 @@
 
 #include <unistd.h>
 
-#include "./include/if_flow.h"
-#include "./include/flowlib.h"
+#include "../include/if_flow.h"
+#include "../include/flowlib.h"
 #include "models/better_pipeline.h" /* Pipeline model */
 
 #define FLOWD_MOCK_SUPPORT 1
@@ -420,6 +420,19 @@ static int flow_cmd_update_flows(struct nlmsghdr *nlh)
 	return -EOPNOTSUPP;
 }
 
+static bool flow_is_dynamic_table(int uid)
+{
+	int i;
+
+	for (i = 0; my_tbl_nodes[i]->uid; i++) {
+		if (my_tbl_nodes[i]->uid == uid &&
+		    my_tbl_nodes[i]->flags & NET_FLOW_TABLE_DYNAMIC)
+			return true;
+	}
+
+	return false;
+}
+
 static int flow_cmd_table(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *glh = nlmsg_data(nlh);
@@ -491,6 +504,11 @@ static int flow_cmd_table(struct nlmsghdr *nlh)
 			if (my_dyn_table_list[tables[i].uid].uid) {
 				fprintf(stderr, "create table request exists in dyn tables abort!\n");
 				return -EEXIST;
+			}
+
+			if (flow_is_dynamic_table(tables[i].source) == false) {
+				fprintf(stderr, "create table requests require dynamic bit\n");
+				return -EINVAL;
 			}
 
 			/* In ENOMEM case leave my_dyn_table_list allocated
@@ -576,12 +594,12 @@ int main(int argc, char **argv)
 	}
 
 #ifdef FLOWD_MOCK_SUPPORT
-	for (i = 0; my_table_list[i].uid; i++)
-		flowd_mock_tables[i] = calloc(1 + my_table_list[i].size, sizeof(struct net_flow_flow));
+	for (i = 0; my_table_list[i]->uid; i++)
+		flowd_mock_tables[i] = calloc(1 + my_table_list[i]->size, sizeof(struct net_flow_flow));
 #endif
 
-	for (i = 0; my_table_list[i].uid; i++)
-		my_dyn_table_list[my_table_list[i].uid] = my_table_list[i];
+	for (i = 0; my_table_list[i]->uid; i++)
+		my_dyn_table_list[my_table_list[i]->uid] = *my_table_list[i];
 
 	/* Need to populate headers, tables, and actions for string lookup */
 	flow_push_headers(my_header_list);

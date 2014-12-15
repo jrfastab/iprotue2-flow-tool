@@ -387,6 +387,7 @@ static struct nla_policy flow_get_header_policy[NET_FLOW_FIELD_ATTR_MAX+1] = {
 
 static struct nla_policy flow_get_node_policy[NET_FLOW_TABLE_GRAPH_NODE_MAX + 1] = {
 	[NET_FLOW_TABLE_GRAPH_NODE_UID]    = { .type = NLA_U32,},
+	[NET_FLOW_TABLE_GRAPH_NODE_FLAGS]    = { .type = NLA_U32,},
 	[NET_FLOW_TABLE_GRAPH_NODE_JUMP]   = { .type = NLA_NESTED,},
 };
 
@@ -659,6 +660,23 @@ static int flow_compar_graph_nodes(const void *a, const void *b)
 
 	return -EINVAL;
 }
+
+static void pp_tbl_node_flags(FILE *fp, int print, __u32 flags)
+{
+	if (!print)
+		return;
+
+	if (flags)
+		pfprintf(fp, print, "( ");
+	if (flags & NET_FLOW_TABLE_EGRESS_ROOT)
+		pfprintf(fp, print, "EGRESS ");
+	if (flags & NET_FLOW_TABLE_INGRESS_ROOT)
+		pfprintf(fp, print, "INGRESS ");
+	if (flags & NET_FLOW_TABLE_DYNAMIC)
+		pfprintf(fp, print, "DYNAMIC ");
+	if (flags)
+		pfprintf(fp, print, ") ");
+}
  
 void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 {
@@ -680,6 +698,7 @@ void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 		}
 
 		pfprintf(fp, print, "\t%s: ", table_names(nodes[i].uid));
+		pp_tbl_node_flags(fp, print, nodes[i].flags);
 		for (j = 0; nodes[i].jump[j].node; ++j)
 			pp_jump_table(fp, print, &nodes[i].jump[j]);
 	}
@@ -1321,10 +1340,15 @@ int flow_get_tbl_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_t
 		}
 
 		n->uid = nla_get_u32(node[NET_FLOW_TABLE_GRAPH_NODE_UID]);
+
+		if (node[NET_FLOW_TABLE_GRAPH_NODE_FLAGS])
+			n->flags = nla_get_u32(node[NET_FLOW_TABLE_GRAPH_NODE_FLAGS]);
+
 		if (!node[NET_FLOW_TABLE_GRAPH_NODE_JUMP]) {
 			fprintf(stderr, "Warning, missing graph node jump table\n");
 			continue;
 		}
+
 		err = flow_get_jump_table(fp, false, node[NET_FLOW_TABLE_GRAPH_NODE_JUMP], &n->jump);
 		if (err) {
 			fprintf(stderr, "Warning table graph jump parse error. aborting.\n");
@@ -1617,7 +1641,8 @@ int flow_put_table_graph(struct nl_msg *nlbuf, struct net_flow_tbl_node **ref)
 		if (!node)
 			return -EMSGSIZE;
 
-		if (nla_put_u32(nlbuf, NET_FLOW_TABLE_GRAPH_NODE_UID, ref[i]->uid))
+		if (nla_put_u32(nlbuf, NET_FLOW_TABLE_GRAPH_NODE_UID, ref[i]->uid) ||
+		    nla_put_u32(nlbuf, NET_FLOW_TABLE_GRAPH_NODE_FLAGS, ref[i]->flags))
 			return -EMSGSIZE;
 
 		jump = nla_nest_start(nlbuf, NET_FLOW_TABLE_GRAPH_NODE_JUMP);
