@@ -660,7 +660,10 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		errno = 0;
-		err = sscanf(*argv, "0x%016x", &match->mask_u64);
+		
+		err = ll_addr_a2n((char *)&match->mask_u64, ETH_ALEN, *argv);
+		if (err < ETH_ALEN)
+			err = sscanf(*argv, "0x%016x", &match->mask_u64);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu64 "", &match->mask_u64);
 	}

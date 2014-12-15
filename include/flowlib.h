@@ -85,3 +85,6 @@ char *action_names(int uid);
 
 int gen_table_id(void);
 int get_table_id(char *name);
+
+const char *ll_addr_a2n(char *lladdr, int len, const char *arg);
+const char *ll_addr_n2a(unsigned char *, int, int, char *, int);

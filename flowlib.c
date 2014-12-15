@@ -296,6 +296,34 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int 
 	return buf;
 }
 
+/* ll_addr_a2n is a iproute 2 library call hard coded here for now */
+const char *ll_addr_a2n(char *lladdr, int len, const char *arg)
+{
+	int i;
+
+	for (i=0; i<len; i++) {
+		int temp;
+		char *cp = strchr(arg, ':');
+		if (cp) {
+			*cp = 0;
+			cp++;
+		}
+		if (sscanf(arg, "%x", &temp) != 1) {
+			fprintf(stderr, "\"%s\" is invalid lladdr.\n", arg);
+			return -1;
+		}
+		if (temp < 0 || temp > 255) {
+			fprintf(stderr, "\"%s\" is invalid lladdr.\n", arg);
+			return -1;
+		}
+		lladdr[i] = temp;
+		if (!cp)
+			break;
+		arg = cp;
+	}
+	return i+1;
+}
+
 static void pfprintf(FILE *fp, int print, const char *format, ...)
 {
 	va_list args;
