@@ -433,7 +433,7 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%016x)",
 			 headers_names(hi), fi ? fields_names(hi, fi) : "",
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
-			 ref->mask_u64);
+			 ll_addr_n2a((unsigned char *)&ref->mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));
 		if (e)
 			agsafeset(e, "label", fieldstr, "");
 		break;

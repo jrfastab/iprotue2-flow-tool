@@ -547,7 +547,7 @@ void set_flow_usage()
 int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		  struct net_flow_field_ref *match)
 {
-	char *strings, *instance, *s_fld, *endptr;
+	char *strings, *instance, *s_fld;
 	struct net_flow_hdr_node *hdr_node;
 	struct net_flow_field *field;
 	int advance = 0, err = 0;
@@ -618,25 +618,23 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
 		err = sscanf(*argv, "0x%02x", &match->value_u8);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu8 "", &match->value_u8);
+			err = sscanf(*argv, "%" SCNu8 "", &match->value_u8);
 	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
-		err = sscanf(*argv, "0x%04x" PRIu16 "", &match->value_u16);
+		err = sscanf(*argv, "0x%04x" SCNu16 "", &match->value_u16);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu16 "", &match->value_u16);
+			err = sscanf(*argv, "%" SCNu16 "", &match->value_u16);
 	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
-		err = sscanf(*argv, "0x%08x" PRIu32 "", &match->value_u32);
+		err = sscanf(*argv, "0x%08x" SCNu32 "", &match->value_u32);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu32 "", &match->value_u32);
+			err = sscanf(*argv, "%" SCNu32 "", &match->value_u32);
 	} else if (field->bitwidth <= 64) {
 		errno = 0;
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
-		match->value_u64 = strtoll(*argv, &endptr, 0);
-		if (errno)
-			err = -EINVAL;
-		else
-			err = 1;
+		err = sscanf(*argv, "0x%016x" SCNu64 "", &match->value_u64);
+		if (err != 1)
+			err = sscanf(*argv, "%" SCNu64 "", &match->value_u64);
 	}
 	advance++;
 
@@ -648,26 +646,23 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		err = sscanf(*argv, "0x%02x", &match->mask_u8);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu8 "", &match->mask_u8);
+			err = sscanf(*argv, "%" SCNu8 "", &match->mask_u8);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		err = sscanf(*argv, "0x%04x", &match->mask_u16);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu16 "", &match->mask_u16);
+			err = sscanf(*argv, "%" SCNu16 "", &match->mask_u16);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		err = sscanf(*argv, "0x%08x", &match->mask_u32);
 		if (err != 1)
-			err = sscanf(*argv, "%" PRIu32 "", &match->mask_u32);
+			err = sscanf(*argv, "%" SCNu32 "", &match->mask_u32);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		errno = 0;
-		match->mask_u64 = strtoll(*argv, &endptr, 0);
-		if (errno)
-			err = -EINVAL;
-		else
-			err = 1;
-		break;
+		err = sscanf(*argv, "0x%016x", &match->mask_u64);
+		if (err != 1)
+			err = sscanf(*argv, "%" SCNu64 "", &match->mask_u64);
 	}
 
 	if (err != 1)
