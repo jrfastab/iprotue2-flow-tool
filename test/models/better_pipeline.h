@@ -566,7 +566,7 @@ int actions_vxlan_decap[2] = {ACTION_VXLAN_DECAP,0};
 int actions_l2fwd[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
 int actions_forward_group[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
 int actions_tunnel_encap[2] = {ACTION_VXLAN_ENCAP, 0};
-int actions_tcam[4] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, 0};
+int actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET, 0};
 
 #define TABLE_TCAM 1
 #define TABLE_FORWARD_GROUP 2
