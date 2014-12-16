@@ -856,7 +856,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 
 	memset(&table, 0, sizeof(table));
 	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_ACTIONS);
-	memset(acts, 0, sizeof(struct net_flow_action) * MAX_ACTIONS);
+	memset(acts, 0, sizeof(int) * MAX_ACTIONS);
 	table.matches = &matches[0];
 	table.actions = &acts[0];
 
