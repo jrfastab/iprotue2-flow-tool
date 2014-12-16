@@ -554,8 +554,8 @@ void pp_table(FILE *fp, int print, struct net_flow_table *table)
 {
 	int i;
 
-	pfprintf(fp, print, "\n%s:%i src %i size %i\n",
-		 table->name, table->uid, table->source, table->size);
+	pfprintf(fp, print, "\n%s:%i src %i apply %i size %i\n",
+		 table->name, table->uid, table->source, table->apply_action, table->size);
 
 	pfprintf(fp, print, "  matches:");
 	if (table->matches)
@@ -937,7 +937,7 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 	struct nlattr *table[NET_FLOW_TABLE_ATTR_MAX+1];
 	struct nlattr *i;
 	char *name;
-	int uid, src, size, cnt, rem, err = 0;
+	int uid, src, apply, size, cnt, rem, err = 0;
 	struct net_flow_field_ref *matches = NULL;
 	int *actions = NULL;
 
@@ -950,7 +950,8 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 	name = table[NET_FLOW_TABLE_ATTR_NAME] ? nla_get_string(table[NET_FLOW_TABLE_ATTR_NAME]) : "<none>",
 	uid = table[NET_FLOW_TABLE_ATTR_UID] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_UID]) : 0;
 
-	src = table[NET_FLOW_TABLE_ATTR_SOURCE] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_SOURCE]) : 0,
+	src = table[NET_FLOW_TABLE_ATTR_SOURCE] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_SOURCE]) : 0;
+	apply = table[NET_FLOW_TABLE_ATTR_APPLY] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_APPLY]) : 0;
 	size = table[NET_FLOW_TABLE_ATTR_SIZE] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_SIZE]) : 0;
 
 	if (table[NET_FLOW_TABLE_ATTR_MATCHES])
@@ -976,6 +977,7 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 	strncpy(t->name, name, IFNAMSIZ - 1);
 	t->uid = uid;
 	t->source = src;
+	t->apply_action = apply;
 	t->size = size;
 
 	t->matches = matches;
@@ -1584,6 +1586,7 @@ int flow_put_table(struct nl_msg *nlbuf, struct net_flow_table *ref)
 	if (nla_put_string(nlbuf, NET_FLOW_TABLE_ATTR_NAME, ref->name) ||
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_UID, ref->uid) ||
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_SOURCE, ref->source) ||
+	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_APPLY, ref->apply_action) ||
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_SIZE, ref->size))
 		return -EMSGSIZE;
 

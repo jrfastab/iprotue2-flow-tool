@@ -109,6 +109,7 @@ struct net_flow_field_ref {
  *
  * @uid unique identifier for table
  * @source uid of parent table
+ * @apply_action uid action apply group
  * @size max number of entries for table or -1 for unbounded
  * @matches null terminated set of supported match types given by match uid
  * @actions null terminated set of supported action types given by action uid
@@ -118,6 +119,7 @@ struct net_flow_table {
 	char name[IFNAMSIZ];
 	int uid;
 	int source;
+	int apply_action;
 	int size;
 	struct net_flow_field_ref *matches;
 	int *actions;
@@ -264,6 +266,7 @@ enum {
 	NET_FLOW_TABLE_ATTR_NAME,
 	NET_FLOW_TABLE_ATTR_UID,
 	NET_FLOW_TABLE_ATTR_SOURCE,
+	NET_FLOW_TABLE_ATTR_APPLY,
 	NET_FLOW_TABLE_ATTR_SIZE,
 	NET_FLOW_TABLE_ATTR_MATCHES,
 	NET_FLOW_TABLE_ATTR_ACTIONS,
