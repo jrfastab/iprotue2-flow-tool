@@ -569,9 +569,9 @@ int actions_tunnel_encap[2] = {ACTION_VXLAN_ENCAP, 0};
 int actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET, 0};
 
 #define TABLE_TCAM 1
-#define TABLE_FORWARD_GROUP 2
-#define TABLE_L2FWD 3
-#define TABLE_ECMP_GROUP 4
+#define TABLE_ECMP_GROUP 2
+#define TABLE_FORWARD_GROUP 3
+#define TABLE_L2FWD 4
 #define TABLE_TUNNEL_ENCAP 5
 #define TABLE_VXLAN_DECAP 6
 
@@ -853,7 +853,7 @@ struct net_flow_hdr_node *my_hdr_nodes[11] = {
  * TABLE GRAPH
  *******************************************************************/
 struct net_flow_jump_table my_table_node_ecmp_group_jump[2] = {
-	{ .field = {0}, .node = TABLE_TUNNEL_ENCAP},
+	{ .field = {0}, .node = TABLE_L2FWD},
 	{ .field = {0}, .node = 0},
 };
 struct net_flow_tbl_node my_table_node_ecmp_group = {.uid = TABLE_ECMP_GROUP, .jump = my_table_node_ecmp_group_jump};
@@ -866,13 +866,13 @@ struct net_flow_jump_table my_table_node_vxlan_decap_jump[2] = {
 struct net_flow_tbl_node my_table_node_vxlan_decap = {.uid = TABLE_VXLAN_DECAP, .jump = my_table_node_vxlan_decap_jump};
 
 struct net_flow_jump_table my_table_node_l2_fwd_jump[2] = {
-	{ .field = {0}, .node = TABLE_ECMP_GROUP},
+	{ .field = {0}, .node = TABLE_FORWARD_GROUP},
 	{ .field = {0}, .node = 0},
 };
 struct net_flow_tbl_node my_table_node_l2_fwd = {.uid = TABLE_L2FWD, .jump = my_table_node_l2_fwd_jump};
 
 struct net_flow_jump_table my_table_node_forward_group_jump[2] = {
-	{ .field = {0}, .node = TABLE_L2FWD},
+	{ .field = {0}, .node = TABLE_TUNNEL_ENCAP},
 	{ .field = {0}, .node = 0},
 };
 struct net_flow_tbl_node my_table_node_forward_group = {.uid = TABLE_FORWARD_GROUP, .jump = my_table_node_forward_group_jump};
@@ -884,7 +884,7 @@ struct net_flow_jump_table my_table_node_tunnel_encap_jump[2] = {
 struct net_flow_tbl_node my_table_node_tunnel_encap = {.uid = TABLE_TUNNEL_ENCAP, .jump = my_table_node_tunnel_encap_jump};
 
 struct net_flow_jump_table my_table_node_terminal_jump[2] = {
-	{ .field = {0}, .node = TABLE_FORWARD_GROUP},
+	{ .field = {0}, .node = TABLE_ECMP_GROUP},
 	{ .field = {0}, .node = 0},
 };
 struct net_flow_tbl_node my_table_node_tcam = {
@@ -897,9 +897,9 @@ struct net_flow_tbl_node my_table_node_nil = {.uid = 0, .jump = NULL};
 
 struct net_flow_tbl_node *my_tbl_nodes[7] = {
 	&my_table_node_tcam,
-	&my_table_node_forward_group,
-	&my_table_node_l2_fwd,
 	&my_table_node_ecmp_group,
+	&my_table_node_l2_fwd,
+	&my_table_node_forward_group,
 	&my_table_node_tunnel_encap,
 	&my_table_node_vxlan_decap,
 	&my_table_node_nil,
