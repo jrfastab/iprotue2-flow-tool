@@ -111,7 +111,7 @@ int get_table_id(char *name)
 
 	for (i = 0; i < MAX_TABLES; i++) {
 		if (tables[i] &&
-		    strncmp(tables[i]->name, name, IFNAMSIZ) == 0)
+		    strncmp(tables[i]->name, name, NET_FLOW_NAMSIZ) == 0)
 			return tables[i]->uid;
 	}
 
@@ -351,7 +351,7 @@ static struct nla_policy flow_get_tables_policy[NET_FLOW_MAX+1] = {
 
 struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 	[NET_FLOW_TABLE_ATTR_NAME]	= { .type = NLA_STRING,
-					    .maxlen = IFNAMSIZ-1 },
+					    .maxlen = NET_FLOW_NAMSIZ-1 },
 	[NET_FLOW_TABLE_ATTR_UID]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_SOURCE]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_SIZE]	= { .type = NLA_U32 },
@@ -839,7 +839,7 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 	if (action[NET_FLOW_ACTION_ATTR_NAME]) {
 		act->uid = uid;
 		name = nla_get_string(action[NET_FLOW_ACTION_ATTR_NAME]);
-		strncpy(act->name, name, IFNAMSIZ - 1);
+		strncpy(act->name, name, NET_FLOW_NAMSIZ - 1);
 	} else if (act && act->uid) {
 		name = act->name;
 	} else {
@@ -873,7 +873,7 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 done:
 	if (a) {
 		a->uid = act->uid;
-		strncpy(a->name, name, IFNAMSIZ - 1);
+		strncpy(a->name, name, NET_FLOW_NAMSIZ - 1);
 		a->args = act->args;
 	}
 	actions[uid] = act;
@@ -974,7 +974,7 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 		}
 	}
 
-	strncpy(t->name, name, IFNAMSIZ - 1);
+	strncpy(t->name, name, NET_FLOW_NAMSIZ - 1);
 	t->uid = uid;
 	t->source = src;
 	t->apply_action = apply;
@@ -1122,7 +1122,7 @@ int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow
 		f->uid = field[NET_FLOW_FIELD_ATTR_UID] ?
 			 nla_get_u32(field[NET_FLOW_FIELD_ATTR_UID]) : 0;
 		strncpy(f->name, (field[NET_FLOW_FIELD_ATTR_NAME] ? 
-			  nla_get_string(field[NET_FLOW_FIELD_ATTR_NAME]) : "<none>"), IFNAMSIZ - 1);
+			  nla_get_string(field[NET_FLOW_FIELD_ATTR_NAME]) : "<none>"), NET_FLOW_NAMSIZ - 1);
 		f->bitwidth = field[NET_FLOW_FIELD_ATTR_BITWIDTH] ?
 			      nla_get_u32(field[NET_FLOW_FIELD_ATTR_BITWIDTH]) : 0;
 		header_fields[hdr->uid][f->uid] = f;
@@ -1167,7 +1167,7 @@ int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_hea
 				nla_get_u32(hdr[NET_FLOW_HEADER_ATTR_UID]) : 0;
 		strncpy(header->name,
 			strdup(hdr[NET_FLOW_HEADER_ATTR_NAME] ?
-				nla_get_string(hdr[NET_FLOW_HEADER_ATTR_NAME]) : ""), IFNAMSIZ - 1);
+				nla_get_string(hdr[NET_FLOW_HEADER_ATTR_NAME]) : ""), NET_FLOW_NAMSIZ - 1);
 
 		flow_get_table_field(fp, print, hdr[NET_FLOW_HEADER_ATTR_FIELDS], header);
 		headers[header->uid] = header;
@@ -1269,7 +1269,7 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 			char *name;
 
 			name = nla_get_string(node[NET_FLOW_HEADER_NODE_NAME]);
-			strncpy(nodes[j].name, name, IFNAMSIZ - 1);
+			strncpy(nodes[j].name, name, NET_FLOW_NAMSIZ - 1);
 		}
 
 		if (!node[NET_FLOW_HEADER_NODE_UID]) {
