@@ -192,6 +192,7 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 		fprintf(stderr, "Warning invalid identifier type len\n");
 		return -EINVAL;
 	}
+
 	type = nla_get_u32(tb[NET_FLOW_IDENTIFIER_TYPE]);
 
 	switch (type) {
@@ -201,8 +202,8 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 		pfprintf(fp, p, "%s (%i):\n", iface, ifindex);
 		break;
 	default:
-		fprintf(stderr, "Unknown interface identifier type %i, abort\n", type);
-		return -EINVAL;
+		fprintf(stderr, "Warning unknown interface identifier type %i\n", type);
+		break;
 	}
 
 	return 0;
@@ -359,15 +360,13 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 		return;
 	}
 
-	err = flow_table_cmd_to_type(stdout, false, -1, tb);
+	err = flow_table_cmd_to_type(stdout, false, 0, tb);
 	if (err)
 		return;
 
 	if (tb[NET_FLOW_FLOWS]) {
 		fprintf(stderr, "Failed to set:\n");
 		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
-	} else {
-		fprintf(stderr, "Completed sucessfully\n");
 	}
 }
 

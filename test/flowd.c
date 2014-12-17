@@ -370,7 +370,7 @@ static int flow_cmd_resolve_flows(struct net_flow_flow *flow, int cmd,
 			return -EINVAL;
 		}
 skip_add:
-		if (error_method) {
+		if (err) {
 			switch (error_method) {
 			case NET_FLOW_FLOWS_ERROR_ABORT:
 				return err;
@@ -437,7 +437,6 @@ static int flow_cmd_flows(struct nlmsghdr *nlh)
 		printf("%s: return err %i\n", __func__, err);
 		return err;
 	}
-		printf("%s: error_method %i autosend err %i\n", __func__, error_method, err);
 	return nl_send_auto(nsd, nlbuf);
 }
 
