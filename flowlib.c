@@ -350,6 +350,7 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 					    .maxlen = NET_FLOW_NAMSIZ-1 },
 	[NET_FLOW_TABLE_ATTR_UID]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_SOURCE]	= { .type = NLA_U32 },
+	[NET_FLOW_TABLE_ATTR_APPLY]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_SIZE]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_MATCHES]	= { .type = NLA_NESTED },
 	[NET_FLOW_TABLE_ATTR_ACTIONS]	= { .type = NLA_NESTED },
