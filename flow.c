@@ -546,7 +546,7 @@ void set_flow_usage()
 int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		  struct net_flow_field_ref *match)
 {
-	char *strings, *instance, *s_fld;
+	char *strings, *instance, *s_fld, *has_dots;
 	struct net_flow_hdr_node *hdr_node;
 	struct net_flow_field *field;
 	int advance = 0, err = 0;
@@ -631,12 +631,18 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 			return -EINVAL;
 	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
-		err = sscanf(*argv, "0x%08x" SCNu32 "", &match->value_u32);
-		if (err != 1)
-			err = sscanf(*argv, "%" SCNu32 "", &match->value_u32);
-
-		if (err != 1)
-			return -EINVAL;
+		has_dots = strtok(*argv, " ");
+		if (strchr(has_dots, '.')) {
+			err = inet_aton(*argv, (struct in_addr *)&match->value_u32);
+			if (!err)
+				return -EINVAL;
+		} else {
+			err = sscanf(*argv, "0x%08x" SCNu32 "", &match->value_u32);
+			if (err != 1)
+				err = sscanf(*argv, "%" SCNu32 "", &match->value_u32);
+			if (err != 1)
+				return -EINVAL;
+		}
 	} else if (field->bitwidth <= 64) {
 		errno = 0;
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
@@ -668,11 +674,18 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 			return -EINVAL;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		err = sscanf(*argv, "0x%08x", &match->mask_u32);
-		if (err != 1)
-			err = sscanf(*argv, "%" SCNu32 "", &match->mask_u32);
-		if (err != 1)
-			return -EINVAL;
+		has_dots = strtok(*argv, " ");
+		if (strchr(has_dots, '.')) {
+			err = inet_aton(*argv, (struct in_addr *)&match->mask_u32);
+			if (!err)
+				return -EINVAL;
+		} else {
+			err = sscanf(*argv, "0x%08x" SCNu32 "", &match->mask_u32);
+			if (err != 1)
+				err = sscanf(*argv, "%" SCNu32 "", &match->mask_u32);
+			if (err != 1)
+				return -EINVAL;
+		}
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		errno = 0;
