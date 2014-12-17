@@ -308,14 +308,10 @@ const char *ll_addr_a2n(char *lladdr, int len, const char *arg)
 			*cp = 0;
 			cp++;
 		}
-		if (sscanf(arg, "%x", &temp) != 1) {
-			fprintf(stderr, "\"%s\" is invalid lladdr.\n", arg);
+		if (sscanf(arg, "%x", &temp) != 1)
 			return -1;
-		}
-		if (temp < 0 || temp > 255) {
-			fprintf(stderr, "\"%s\" is invalid lladdr.\n", arg);
+		if (temp < 0 || temp > 255)
 			return -1;
-		}
 		lladdr[i] = temp;
 		if (!cp)
 			break;
@@ -400,7 +396,7 @@ static struct nla_policy flow_get_hdr_node_policy[NET_FLOW_HEADER_NODE_MAX + 1] 
 
 static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bool first, bool nl, Agedge_t *e)
 {
-	char b1[16] = ""; /* arbitrary string field for mac */
+	char b1[64] = ""; /* arbitrary string field for mac */
 	char fieldstr[1024];
 	int fieldlen = 1024;//sizeof(*fieldstr);
 	int inst = ref->instance;
@@ -459,7 +455,7 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 			agsafeset(e, "label", fieldstr, "");
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%016x)",
+		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%s)",
 			 headers_names(hi), fi ? fields_names(hi, fi) : "",
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
 			 ll_addr_n2a((unsigned char *)&ref->mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));

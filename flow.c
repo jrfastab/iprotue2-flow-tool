@@ -619,27 +619,38 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		err = sscanf(*argv, "0x%02x", &match->value_u8);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu8 "", &match->value_u8);
+
+		if (err != 1)
+			return -EINVAL;
 	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 		err = sscanf(*argv, "0x%04x" SCNu16 "", &match->value_u16);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu16 "", &match->value_u16);
+
+		if (err != 1)
+			return -EINVAL;
 	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
 		err = sscanf(*argv, "0x%08x" SCNu32 "", &match->value_u32);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu32 "", &match->value_u32);
+
+		if (err != 1)
+			return -EINVAL;
 	} else if (field->bitwidth <= 64) {
 		errno = 0;
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
-		err = sscanf(*argv, "0x%016x" SCNu64 "", &match->value_u64);
-		if (err != 1)
-			err = sscanf(*argv, "%" SCNu64 "", &match->value_u64);
+		err = ll_addr_a2n((char *)&match->value_u64, sizeof(match->value_u64), *argv);
+		if (err < ETH_ALEN) {
+			err = sscanf(*argv, "0x%016x" SCNu64 "", &match->value_u64);
+			if (err != 1)
+				err = sscanf(*argv, "%" SCNu64 "", &match->value_u64);
+			if (err != 1)
+				return -EINVAL;
+		}
 	}
 	advance++;
-
-	if (err != 1)
-		return err;
 
 	NEXT_ARG(); /* need a mask if its not an exact match */
 	switch (match->type) {
@@ -647,29 +658,35 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		err = sscanf(*argv, "0x%02x", &match->mask_u8);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu8 "", &match->mask_u8);
+		if (err != 1)
+			return -EINVAL;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		err = sscanf(*argv, "0x%04x", &match->mask_u16);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu16 "", &match->mask_u16);
+		if (err != 1)
+			return -EINVAL;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		err = sscanf(*argv, "0x%08x", &match->mask_u32);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu32 "", &match->mask_u32);
+		if (err != 1)
+			return -EINVAL;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		errno = 0;
 		
-		err = ll_addr_a2n((char *)&match->mask_u64, ETH_ALEN, *argv);
-		if (err < ETH_ALEN)
+		err = ll_addr_a2n((char *)&match->mask_u64, sizeof(match->mask_u64), *argv);
+		if (err < ETH_ALEN) {
 			err = sscanf(*argv, "0x%016x", &match->mask_u64);
-		if (err != 1)
-			err = sscanf(*argv, "%" SCNu64 "", &match->mask_u64);
+			if (err != 1)
+				err = sscanf(*argv, "%" SCNu64 "", &match->mask_u64);
+			if (err != 1)
+				return -EINVAL;
+		}
 	}
-
-	if (err != 1)
-		return err;
 
 	advance++;
 	return advance;
