@@ -710,7 +710,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 	struct net_flow_action *a;
 	int i, reqs_args = 0;
 	int err, advance = 0;
-	char *endptr;
+	char *has_dots;
 
 	NEXT_ARG();
 	advance++;
@@ -753,17 +753,38 @@ int get_action_arg(int argc, char **argv, bool need_args,
 				err = sscanf(*argv, "%" PRIu16 "", &action->args[i].value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
+			has_dots = strtok(*argv, " ");
+			if (strchr(has_dots, '.')) {
+				err = inet_aton(*argv, (struct in_addr *)&action->args[i].value_u32);
+				if (!err)
+					return -EINVAL;
+			} else {
+				err = sscanf(*argv, "0x%08x" SCNu32 "", &action->args[i].value_u32);
+				if (err != 1)
+					err = sscanf(*argv, "%" SCNu32 "", &action->args[i].value_u32);
+				if (err != 1)
+					return -EINVAL;
+			}
 			err = sscanf(*argv, "0x%08x", &action->args[i].value_u32);
 			if (err != 1)
 				err = sscanf(*argv, "%" PRIu32 "", &action->args[i].value_u32);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
 			errno = 0;
-			action->args[i].value_u64 = strtol(*argv, &endptr, 10);
-			if (errno)
-				err = -EINVAL;
-			else
-				err = 1;
+
+			err = ll_addr_a2n((char *)&action->args[i].value_u64,
+					  sizeof(action->args[i].value_u64),
+					  *argv);
+
+			if (err < ETH_ALEN) {
+				err = sscanf(*argv, "0x%016x",
+					     &action->args[i].value_u64);
+				if (err != 1)
+					err = sscanf(*argv, "%" SCNu64 "",
+						     &action->args[i].value_u64);
+				if (err != 1)
+					return -EINVAL;
+			}
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 			break;
