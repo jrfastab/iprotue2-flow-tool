@@ -915,7 +915,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 		if (strcmp(*argv, "match") == 0) {
 			advance = get_match_arg(argc, argv, false, true, &matches[match_count]);
 			if (advance < 0)
-				break;
+				return -EINVAL;
 			match_count++;
 			for (; advance; advance--)
 				NEXT_ARG();
@@ -924,7 +924,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 
 			advance = get_action_arg(argc, argv, false, &a);
 			if (advance < 0)
-				break;
+				return -EINVAL;
 			acts[action_count] = a.uid;
 			action_count++;
 			for (; advance; advance--)
