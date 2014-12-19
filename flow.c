@@ -1108,7 +1108,7 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	struct nlattr *flows;
 
 	memset(&flow, 0, sizeof(flow));
-	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_ACTIONS);
+	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_MATCHES);
 	memset(acts, 0, sizeof(struct net_flow_action) * MAX_ACTIONS);
 	flow.matches = &matches[0];
 	flow.actions = &acts[0];
