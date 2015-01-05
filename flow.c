@@ -172,7 +172,7 @@ struct nl_cache *link_cache;
 static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb[])
 {
 	int ifindex, type;
-	char iface[NET_FLOW_NAMSIZ];
+	char iface[IFNAMSIZ];
 
 	if (!tb[NET_FLOW_IDENTIFIER_TYPE]) {
 		fprintf(stderr, "Warning: received flow msg without identifier type!\n");
@@ -198,7 +198,7 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 	switch (type) {
 	case NET_FLOW_IDENTIFIER_IFINDEX:
 		ifindex = nla_get_u32(tb[NET_FLOW_IDENTIFIER]);
-		rtnl_link_i2name(link_cache, ifindex, iface, NET_FLOW_NAMSIZ);
+		rtnl_link_i2name(link_cache, ifindex, iface, IFNAMSIZ);
 		pfprintf(fp, p, "%s (%i):\n", iface, ifindex);
 		break;
 	default:
@@ -725,7 +725,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 	for (i = 0; a->args && a->args[i].type; i++)
 		reqs_args++;
 
-	strncpy(action->name, a->name, NET_FLOW_NAMSIZ - 1);
+	action->name = strdup(a->name);
 	action->uid = a->uid;
 	if (!reqs_args || !need_args)
 		goto done;
@@ -733,7 +733,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 	action->args = calloc(reqs_args + 1, sizeof(struct net_flow_action_arg));
 
 	for (i = 0; i <= reqs_args; i++) {
-		strncpy(action->args[i].name, a->args[i].name, NET_FLOW_NAMSIZ);
+		action->args[i].name = strdup(a->args[i].name);
 		action->args[i].type = a->args[i].type;
 
 		if (a->args[i].type) {
@@ -814,6 +814,8 @@ static void del_table_usage()
 	fprintf(stdout, "flow dev destroy source <id> [name <name> | id <id>]\n");
 }
 
+#define NET_FLOW_MAXNAME 120
+
 int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
@@ -825,7 +827,7 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 	while (argc > 0) {
 		if (strcmp(*argv, "name") == 0) {
 			NEXT_ARG();
-			strncpy(table.name, *argv, NET_FLOW_NAMSIZ - 1);
+			table.name = strndup(*argv, NET_FLOW_MAXNAME);
 			table.uid = get_table_id(table.name);	
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
@@ -844,7 +846,8 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 	}
 
 	if (!table.uid) {
-		if (strncmp(table.name, "", NET_FLOW_NAMSIZ))
+		table.name = strdup(table.name);
+		if (table.name)
 			fprintf(stderr, "Unknown table name %s\n", table.name);
 		else
 			fprintf(stderr, "Unknown table id %i\n", table.uid);
@@ -931,7 +934,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 				NEXT_ARG();
 		} else if (strcmp(*argv, "name") == 0) {
 			NEXT_ARG();
-			strncpy(table.name, *argv, NET_FLOW_NAMSIZ - 1);
+			table.name = strndup(*argv, NET_FLOW_MAXNAME);
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
 			table.source = atoi(*argv);
@@ -989,7 +992,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 		exit(-1);
 	}
 
-	if (strncmp(table.name, "", NET_FLOW_NAMSIZ) == 0) {
+	if (table.name) {
 		fprintf(stderr, "Table has NULL <name> specifier. Please name table\n");
 		set_table_usage();
 		exit(-1);

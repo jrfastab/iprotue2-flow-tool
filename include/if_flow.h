@@ -20,14 +20,12 @@
 #ifndef _IF_FLOW_H
 #define _IF_FLOW_H
 
-#define NET_FLOW_NAMSIZ 80
-
 /**
  * @struct net_flow_fields
  * @brief defines a field in a header
  */
 struct net_flow_field {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	int uid;
 	int bitwidth;
 };
@@ -41,7 +39,7 @@ struct net_flow_field {
  * @fields the set of fields in the net_flow_header
  */
 struct net_flow_header {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	int uid;
 	int field_sz;
 	struct net_flow_field *fields;
@@ -57,7 +55,7 @@ enum net_flow_action_arg_type {
 };
 
 struct net_flow_action_arg {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	enum net_flow_action_arg_type type;
 	union {
 		__u8  value_u8;
@@ -76,7 +74,7 @@ struct net_flow_action_arg {
  * @types NET_FLOW_ACTION_TYPE_NULL terminated list of action types
  */
 struct net_flow_action {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	int uid;
 	struct net_flow_action_arg *args;
 };
@@ -118,7 +116,7 @@ struct net_flow_field_ref {
  * @flows set of flows
  */
 struct net_flow_table {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	int uid;
 	int source;
 	int apply_action;
@@ -139,7 +137,7 @@ struct net_flow_jump_table {
  * @net_flow_jump_table : give a case jump statement
  */
 struct net_flow_hdr_node {
-	char name[NET_FLOW_NAMSIZ];
+	char *name;
 	int uid;
 	int *hdrs;
 	struct net_flow_jump_table *jump;
