@@ -59,7 +59,7 @@ struct net_flow_flow *flowd_mock_tables[MAX_MOCK_TABLES + 1];
 #endif
 
 /* Used as a hook for software cache of flow tables */
-struct net_flow_table my_dyn_table_list[MAX_MOCK_TABLES];
+struct net_flow_tbl my_dyn_table_list[MAX_MOCK_TABLES];
 
 /* The family id can be learned either via a kernel query or by
  * specifying the id on the command line.
@@ -462,7 +462,7 @@ static int flow_cmd_table(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
-	struct net_flow_table *tables;
+	struct net_flow_tbl *tables;
 	int i, err, ifindex = 0;
 	struct nl_msg *nlbuf;
 

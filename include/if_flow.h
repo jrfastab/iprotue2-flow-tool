@@ -23,6 +23,10 @@
 /**
  * @struct net_flow_fields
  * @brief defines a field in a header
+ *
+ * @name string identifier for pretty printing
+ * @uid  unique identifier for field
+ * @bitwidth length of field in bits
  */
 struct net_flow_field {
 	char *name;
@@ -31,14 +35,15 @@ struct net_flow_field {
 };
 
 /**
- * @struct net_flow_header
+ * @struct net_flow_hdr
  * @brief defines a match (header/field) an endpoint can use
  *
+ * @name string identifier for pretty printing
  * @uid unique identifier for header
  * @field_sz number of fields are in the set
- * @fields the set of fields in the net_flow_header
+ * @fields the set of fields in the net_flow_hdr
  */
-struct net_flow_header {
+struct net_flow_hdr {
 	char *name;
 	int uid;
 	int field_sz;
@@ -54,6 +59,14 @@ enum net_flow_action_arg_type {
 	__NET_FLOW_ACTION_ARG_TYPE_VAL_MAX,
 };
 
+/**
+ * @struct net_flow_action_arg
+ * @brief encodes action arguments in structures one per argument
+ *
+ * @name    string identifier for pretty printing
+ * @type    type of argument either u8, u16, u32, u64
+ * @value_# indicate value/mask value type on of u8, u16, u32, or u64
+ */
 struct net_flow_action_arg {
 	char *name;
 	enum net_flow_action_arg_type type;
@@ -71,7 +84,7 @@ struct net_flow_action_arg {
  *
  * @name printable name
  * @uid unique action identifier
- * @types NET_FLOW_ACTION_TYPE_NULL terminated list of action types
+ * @args null terminated list of action arguments
  */
 struct net_flow_action {
 	char *name;
@@ -81,41 +94,56 @@ struct net_flow_action {
 
 /**
  * @struct net_flow_field_ref
- * @brief uniquely identify field as header:field tuple
+ * @brief uniquely identify field as instance:header:field tuple
+ *
+ * @next_node next node in jump table otherwise ignored
+ * @instance identify unique instance of field reference
+ * @header   identify unique header reference
+ * @field    identify unique field in above header reference
+ * @mask_type indicate mask type
+ * @type     indicate value/mask value type on of u8, u16, u32, or u64
+ * @value_u# value of field reference
+ * @mask_u#  mask value of field reference
  */
 struct net_flow_field_ref {
+	int next_node;
 	int instance;
 	int header;
 	int field;
 	int mask_type;
 	int type;
-	union {	/* Are these all the required data types */
-		__u8 value_u8;
-		__u16 value_u16;
-		__u32 value_u32;
-		__u64 value_u64;
-	};
-	union {	/* Are these all the required data types */
-		__u8 mask_u8;
-		__u16 mask_u16;
-		__u32 mask_u32;
-		__u64 mask_u64;
+	union {
+		struct {
+			__u8 value_u8;
+			__u8 mask_u8;
+		};
+		struct {
+			__u16 value_u16;
+			__u16 mask_u16;
+		};
+		struct {
+			__u32 value_u32;
+			__u32 mask_u32;
+		};
+		struct {
+			__u64 value_u64;
+			__u64 mask_u64;
+		};
 	};
 };
 
 /**
- * @struct net_flow_table
+ * @struct net_flow_tbl
  * @brief define flow table with supported match/actions
  *
+ * @name string identifier for pretty printing
  * @uid unique identifier for table
  * @source uid of parent table
- * @apply_action uid action apply group
  * @size max number of entries for table or -1 for unbounded
  * @matches null terminated set of supported match types given by match uid
  * @actions null terminated set of supported action types given by action uid
- * @flows set of flows
  */
-struct net_flow_table {
+struct net_flow_tbl {
 	char *name;
 	int uid;
 	int source;
@@ -125,28 +153,32 @@ struct net_flow_table {
 	int *actions;
 };
 
-struct net_flow_jump_table {
-	struct net_flow_field_ref field;
-	int node; /* <0 is a parser error */
-};
-
-/* net_flow_hdr_node: node in a header graph of header fields.
+/* @struct net_flow_hdr_node
+ * @brief node in a header graph of header fields.
  *
- * @uid : unique id of the graph node
- * @flwo_header_ref : identify the hdrs that can handled by this node
- * @net_flow_jump_table : give a case jump statement
+ * @name string identifier for pretty printing
+ * @uid  unique id of the graph node
+ * @hdrs null terminated list of hdrs identified by this node
+ * @jump encoding of graph structure as a case jump statement
  */
 struct net_flow_hdr_node {
 	char *name;
 	int uid;
 	int *hdrs;
-	struct net_flow_jump_table *jump;
+	struct net_flow_field_ref *jump;
 };
 
+/* @struct net_flow_tbl_node
+ * @brief
+ *
+ * @uid	  unique id of the table node
+ * @flags bitmask of table attributes
+ * @jump  encoding of graph structure as a case jump statement
+ */
 struct net_flow_tbl_node {
 	int uid;
 	__u32 flags;
-	struct net_flow_jump_table *jump;
+	struct net_flow_field_ref *jump;
 };
 
 /**
@@ -168,14 +200,18 @@ struct net_flow_flow {
 	struct net_flow_action *actions;
 };
 
-/* Message attributes */
-
 enum {
 	NET_FLOW_FIELD_UNSPEC,
 	NET_FLOW_FIELD,
 	__NET_FLOW_FIELD_MAX,
 };
 #define NET_FLOW_FIELD_MAX (__NET_FLOW_FIELD_MAX - 1)
+
+/* Max length supported by kernel name strings only the first n characters
+ * will be used by the kernel API. This is to prevent arbitrarily long
+ * strings being passed from user space.
+ */
+#define NET_FLOW_MAX_NAME 80
 
 enum {
 	NET_FLOW_FIELD_ATTR_UNSPEC,
@@ -206,14 +242,29 @@ enum {
 	NET_FLOW_MASK_TYPE_UNSPEC,
 	NET_FLOW_MASK_TYPE_EXACT,
 	NET_FLOW_MASK_TYPE_LPM,
+	NET_FLOW_MASK_TYPE_MASK,
 };
 
 enum {
 	NET_FLOW_FIELD_REF_UNSPEC,
-	NET_FLOW_FIELD_REF,
+	NET_FLOW_FIELD_REF_NEXT_NODE,
+	NET_FLOW_FIELD_REF_INSTANCE,
+	NET_FLOW_FIELD_REF_HEADER,
+	NET_FLOW_FIELD_REF_FIELD,
+	NET_FLOW_FIELD_REF_MASK_TYPE,
+	NET_FLOW_FIELD_REF_TYPE,
+	NET_FLOW_FIELD_REF_VALUE,
+	NET_FLOW_FIELD_REF_MASK,
 	__NET_FLOW_FIELD_REF_MAX,
 };
 #define NET_FLOW_FIELD_REF_MAX (__NET_FLOW_FIELD_REF_MAX - 1)
+
+enum {
+	NET_FLOW_FIELD_REFS_UNSPEC,
+	NET_FLOW_FIELD_REF,
+	__NET_FLOW_FIELD_REFS_MAX,
+};
+#define NET_FLOW_FIELD_REFS_MAX (__NET_FLOW_FIELD_REFS_MAX - 1)
 
 enum {
 	NET_FLOW_FIELD_REF_ATTR_TYPE_UNSPEC,
@@ -221,15 +272,23 @@ enum {
 	NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 	NET_FLOW_FIELD_REF_ATTR_TYPE_U32,
 	NET_FLOW_FIELD_REF_ATTR_TYPE_U64,
-	/* Need more types for ether.addrs, ip.addrs, ... */
 };
 
 enum {
 	NET_FLOW_ACTION_ARG_UNSPEC,
-	NET_FLOW_ACTION_ARG,
+	NET_FLOW_ACTION_ARG_NAME,
+	NET_FLOW_ACTION_ARG_TYPE,
+	NET_FLOW_ACTION_ARG_VALUE,
 	__NET_FLOW_ACTION_ARG_MAX,
 };
 #define NET_FLOW_ACTION_ARG_MAX (__NET_FLOW_ACTION_ARG_MAX - 1)
+
+enum {
+	NET_FLOW_ACTION_ARGS_UNSPEC,
+	NET_FLOW_ACTION_ARG,
+	__NET_FLOW_ACTION_ARGS_MAX,
+};
+#define NET_FLOW_ACTION_ARGS_MAX (__NET_FLOW_ACTION_ARGS_MAX - 1)
 
 enum {
 	NET_FLOW_ACTION_UNSPEC,
@@ -306,7 +365,7 @@ enum {
 };
 #define NET_FLOW_HEADER_GRAPH_MAX (__NET_FLOW_HEADER_GRAPH_MAX - 1)
 
-#define NET_FLOW_TABLE_EGRESS_ROOT 1
+#define	NET_FLOW_TABLE_EGRESS_ROOT 1
 #define	NET_FLOW_TABLE_INGRESS_ROOT 2
 #define	NET_FLOW_TABLE_DYNAMIC 4
 
@@ -369,6 +428,7 @@ enum {
 #define NET_FLOW_ATTR_MAX (__NET_FLOW_ATTR_MAX - 1)
 
 enum {
+	NET_FLOW_IDENTIFIER_UNSPEC,
 	NET_FLOW_IDENTIFIER_IFINDEX, /* net_device ifindex */
 };
 

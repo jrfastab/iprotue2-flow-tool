@@ -732,7 +732,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 
 	action->args = calloc(reqs_args + 1, sizeof(struct net_flow_action_arg));
 
-	for (i = 0; i <= reqs_args; i++) {
+	for (i = 0; i < reqs_args; i++) {
 		action->args[i].name = strdup(a->args[i].name);
 		action->args[i].type = a->args[i].type;
 
@@ -819,7 +819,7 @@ static void del_table_usage()
 int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
-	struct net_flow_table table = {.name = "", .uid = 0};
+	struct net_flow_tbl table = {.name = "", .uid = 0};
 	struct nlattr *nest, *nest1;
 	struct flow_msg *msg;
 	int err = 0;
@@ -905,7 +905,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 	struct flow_msg *msg;
 	int err = 0, advance = 0;
 	int cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
-	struct net_flow_table table;
+	struct net_flow_tbl table;
 
 	memset(&table, 0, sizeof(table));
 	memset(matches, 0, sizeof(struct net_flow_field_ref) * MAX_ACTIONS);

@@ -43,7 +43,7 @@ struct net_flow_field ethernet_fields[3] = {
 };
 
 #define HEADER_ETHERNET 1
-struct net_flow_header ethernet = {
+struct net_flow_hdr ethernet = {
 	.name = "ethernet",
 	.uid = HEADER_ETHERNET,
 	.field_sz = 3,
@@ -62,7 +62,7 @@ struct net_flow_field vlan_fields[4] = {
 };
 
 #define HEADER_VLAN 2
-struct net_flow_header vlan = {
+struct net_flow_hdr vlan = {
 	.name = "vlan",
 	.uid = HEADER_VLAN,
 	.field_sz = 4,
@@ -130,7 +130,7 @@ struct net_flow_field ipv4_fields[14] = {
 };
 
 #define HEADER_IPV4 3
-struct net_flow_header ipv4 = {
+struct net_flow_hdr ipv4 = {
 	.name = "ipv4",
 	.uid = HEADER_IPV4,
 	.field_sz = 14,
@@ -187,7 +187,7 @@ struct net_flow_field tcp_fields[10] = {
 };
 
 #define HEADER_TCP 4
-struct net_flow_header tcp = {
+struct net_flow_hdr tcp = {
 	.name = "tcp",
 	.uid = HEADER_TCP,
 	.field_sz = 10,
@@ -214,7 +214,7 @@ struct net_flow_field udp_fields[4] = {
 };
 
 #define HEADER_UDP 5
-struct net_flow_header udp = {
+struct net_flow_hdr udp = {
 	.name = "udp",
 	.uid = HEADER_UDP,
 	.field_sz = 4,
@@ -237,7 +237,7 @@ struct net_flow_field vxlan_fields[3] = {
 };
 
 #define HEADER_VXLAN 6
-struct net_flow_header vxlan = {
+struct net_flow_hdr vxlan = {
 	.name = "vxlan",
 	.uid = HEADER_VXLAN,
 	.field_sz = 3,
@@ -268,7 +268,7 @@ struct net_flow_field metadata_fields[5] = {
 };
 
 #define HEADER_METADATA 7
-struct net_flow_header metadata_t = {
+struct net_flow_hdr metadata_t = {
 	.name = "metadata_t",
 	.uid = HEADER_METADATA,
 	.field_sz = 5,
@@ -287,9 +287,9 @@ struct net_flow_action_arg set_egress_port_args[2] = {
 	},
 };
 
-struct net_flow_header nill = {.name = "", .uid = 0, .field_sz=0, .fields = NULL};
+struct net_flow_hdr nill = {.name = "", .uid = 0, .field_sz=0, .fields = NULL};
 
-struct net_flow_header *my_header_list[8] =
+struct net_flow_hdr *my_header_list[8] =
 {
 	&ethernet,
 	&vlan,
@@ -575,7 +575,7 @@ int actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET
 #define TABLE_TUNNEL_ENCAP 5
 #define TABLE_VXLAN_DECAP 6
 
-struct net_flow_table my_table_ecmp_group = {
+struct net_flow_tbl my_table_ecmp_group = {
 	.name = "ecmp_group",
 	.uid = TABLE_ECMP_GROUP,
 	.source = 2,
@@ -585,7 +585,7 @@ struct net_flow_table my_table_ecmp_group = {
 	.actions = actions_ecmp_group,
 };
 
-struct net_flow_table my_table_vxlan_decap = {
+struct net_flow_tbl my_table_vxlan_decap = {
 	.name = "vxlan_decap",
 	.uid = TABLE_VXLAN_DECAP,
 	.source = 4,
@@ -595,7 +595,7 @@ struct net_flow_table my_table_vxlan_decap = {
 	.actions = actions_vxlan_decap,
 };
 
-struct net_flow_table my_table_l2fwd = {
+struct net_flow_tbl my_table_l2fwd = {
 	.name = "l2fwd",
 	.uid = TABLE_L2FWD,
 	.source = 3,
@@ -605,7 +605,7 @@ struct net_flow_table my_table_l2fwd = {
 	.actions = actions_l2fwd,
 };
 
-struct net_flow_table my_table_forward_group = {
+struct net_flow_tbl my_table_forward_group = {
 	.name = "forward_group",
 	.uid = TABLE_FORWARD_GROUP,
 	.source = 3,
@@ -615,7 +615,7 @@ struct net_flow_table my_table_forward_group = {
 	.actions = actions_forward_group,
 };	
 
-struct net_flow_table my_table_tunnel_encap = {
+struct net_flow_tbl my_table_tunnel_encap = {
 	.name = "tunnel_encap",
 	.uid = TABLE_TUNNEL_ENCAP,
 	.source = 4,
@@ -625,7 +625,7 @@ struct net_flow_table my_table_tunnel_encap = {
 	.actions = actions_tunnel_encap,
 };
 
-struct net_flow_table my_table_tcam = {
+struct net_flow_tbl my_table_tcam = {
 	.name = "tcam",
 	.uid = TABLE_TCAM,
 	.source = 1,
@@ -635,7 +635,7 @@ struct net_flow_table my_table_tcam = {
 	.actions = actions_tcam,
 };
 
-struct net_flow_table my_table_null = {
+struct net_flow_tbl my_table_null = {
 	.name = "",
 	.uid = 0,
 	.source = 0,
@@ -644,7 +644,7 @@ struct net_flow_table my_table_null = {
 	.actions = NULL,
 };
 
-struct net_flow_table *my_table_list[7] =
+struct net_flow_tbl *my_table_list[7] =
 {
 	&my_table_tcam,
 	&my_table_forward_group,
@@ -659,29 +659,24 @@ struct net_flow_table *my_table_list[7] =
  * Jump Table
  ********************************************************************/
 
-struct net_flow_jump_table my_parse_ethernet[3] =
+struct net_flow_field_ref my_parse_ethernet[3] =
 {
 	{
-		.field = {
-		   .header = HEADER_ETHERNET,
-		   .field = HEADER_ETHERNET_ETHERTYPE,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 0x08000,
-		},
-		.node = HEADER_INSTANCE_IPV4,
+		.next_node = HEADER_INSTANCE_IPV4,
+		.header = HEADER_ETHERNET,
+		.field = HEADER_ETHERNET_ETHERTYPE,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 0x08000,
 	},
 	{
-		.field = {
-		   .header = HEADER_ETHERNET,
-		   .field = HEADER_ETHERNET_ETHERTYPE,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 0x08100,
-		},
-		.node = HEADER_INSTANCE_VLAN_OUTER,
+		.next_node = HEADER_INSTANCE_VLAN_OUTER,
+		.header = HEADER_ETHERNET,
+		.field = HEADER_ETHERNET_ETHERTYPE,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 0x08100,
 	},
 	{
-		.field = {0},
-		.node = 0,
+		.next_node = 0,
 	},
 };
 
@@ -693,20 +688,17 @@ struct net_flow_hdr_node my_header_node_ethernet = {
 	.jump = my_parse_ethernet,
 };
 
-struct net_flow_jump_table my_parse_vlan[3] =
+struct net_flow_field_ref my_parse_vlan[3] =
 {
 	{
-		.field = {
-		   .header = HEADER_ETHERNET,
-		   .field = HEADER_ETHERNET_ETHERTYPE,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 0x08000,
-		},
-		.node = HEADER_INSTANCE_IPV4,
+		.next_node = HEADER_INSTANCE_IPV4,
+		.header = HEADER_ETHERNET,
+		.field = HEADER_ETHERNET_ETHERTYPE,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 0x08000,
 	},
 	{
-		.field = {0},
-		.node = 0,
+		.next_node = 0,
 	},
 };
 
@@ -718,14 +710,12 @@ struct net_flow_hdr_node my_header_node_vlan = {
 	.jump = my_parse_vlan,
 };
 
-struct net_flow_jump_table my_terminal_headers[2] = {
+struct net_flow_field_ref my_terminal_headers[2] = {
 	{
-		.field = {0},
-		.node = NET_FLOW_JUMP_TABLE_DONE,
+		.next_node = NET_FLOW_JUMP_TABLE_DONE,
 	},
 	{
-		.field = {0},
-		.node = 0,
+		.next_node = 0,
 	},
 };
 
@@ -737,29 +727,24 @@ struct net_flow_hdr_node my_header_node_tcp = {
 	.jump = my_terminal_headers,
 };
 
-struct net_flow_jump_table my_parse_ipv4[3] =
+struct net_flow_field_ref my_parse_ipv4[3] =
 {
 	{
-		.field = {
-		   .header = HEADER_IPV4,
-		   .field = HEADER_IPV4_PROTOCOL,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 6,
-		},
-		.node = HEADER_INSTANCE_TCP,
+		.next_node = HEADER_INSTANCE_TCP,
+		.header = HEADER_IPV4,
+		.field = HEADER_IPV4_PROTOCOL,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 6,
 	},
 	{
-		.field = {
-		   .header = HEADER_IPV4,
-		   .field = HEADER_IPV4_PROTOCOL,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 17,
-		},
-		.node = HEADER_INSTANCE_UDP,
+		.next_node = HEADER_INSTANCE_UDP,
+		.header = HEADER_IPV4,
+		.field = HEADER_IPV4_PROTOCOL,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 17,
 	},
 	{
-		.field = {0},
-		.node = 0,
+		.next_node = 0,
 	},
 };
 
@@ -771,20 +756,17 @@ struct net_flow_hdr_node my_header_node_ipv4 = {
 	.jump = my_parse_ipv4,
 };
 
-struct net_flow_jump_table my_parse_udp[2] =
+struct net_flow_field_ref my_parse_udp[2] =
 {
 	{
-		.field = {
-		   .header = HEADER_UDP,
-		   .field = HEADER_UDP_DST_PORT,
-		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		   .value_u16 = 4789,
-		},
-		.node = HEADER_INSTANCE_VXLAN,
+		.header = HEADER_UDP,
+		.field = HEADER_UDP_DST_PORT,
+		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		.value_u16 = 4789,
+		.next_node = HEADER_INSTANCE_VXLAN,
 	},
 	{
-		.field = {0},
-		.node = 0,
+		.next_node = 0,
 	},
 };
 
@@ -852,40 +834,40 @@ struct net_flow_hdr_node *my_hdr_nodes[11] = {
 /********************************************************************
  * TABLE GRAPH
  *******************************************************************/
-struct net_flow_jump_table my_table_node_ecmp_group_jump[2] = {
-	{ .field = {0}, .node = TABLE_L2FWD},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_ecmp_group_jump[2] = {
+	{ .next_node = TABLE_L2FWD},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_ecmp_group = {.uid = TABLE_ECMP_GROUP, .jump = my_table_node_ecmp_group_jump};
 
 
-struct net_flow_jump_table my_table_node_vxlan_decap_jump[2] = {
-	{ .field = {0}, .node = NET_FLOW_JUMP_TABLE_DONE},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_vxlan_decap_jump[2] = {
+	{ .next_node = NET_FLOW_JUMP_TABLE_DONE},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_vxlan_decap = {.uid = TABLE_VXLAN_DECAP, .jump = my_table_node_vxlan_decap_jump};
 
-struct net_flow_jump_table my_table_node_l2_fwd_jump[2] = {
-	{ .field = {0}, .node = TABLE_FORWARD_GROUP},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_l2_fwd_jump[2] = {
+	{ .next_node = TABLE_FORWARD_GROUP},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_l2_fwd = {.uid = TABLE_L2FWD, .jump = my_table_node_l2_fwd_jump};
 
-struct net_flow_jump_table my_table_node_forward_group_jump[2] = {
-	{ .field = {0}, .node = TABLE_TUNNEL_ENCAP},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_forward_group_jump[2] = {
+	{ .next_node = TABLE_TUNNEL_ENCAP},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_forward_group = {.uid = TABLE_FORWARD_GROUP, .jump = my_table_node_forward_group_jump};
 
-struct net_flow_jump_table my_table_node_tunnel_encap_jump[2] = {
-	{ .field = {0}, .node = TABLE_VXLAN_DECAP},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_tunnel_encap_jump[2] = {
+	{ .next_node = TABLE_VXLAN_DECAP},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_tunnel_encap = {.uid = TABLE_TUNNEL_ENCAP, .jump = my_table_node_tunnel_encap_jump};
 
-struct net_flow_jump_table my_table_node_terminal_jump[2] = {
-	{ .field = {0}, .node = TABLE_ECMP_GROUP},
-	{ .field = {0}, .node = 0},
+struct net_flow_field_ref my_table_node_terminal_jump[2] = {
+	{ .next_node = TABLE_ECMP_GROUP},
+	{ .next_node = 0},
 };
 struct net_flow_tbl_node my_table_node_tcam = {
 	.uid = TABLE_TCAM,
