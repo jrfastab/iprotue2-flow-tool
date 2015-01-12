@@ -992,7 +992,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 		exit(-1);
 	}
 
-	if (table.name) {
+	if (!table.name) {
 		fprintf(stderr, "Table has NULL <name> specifier. Please name table\n");
 		set_table_usage();
 		exit(-1);
