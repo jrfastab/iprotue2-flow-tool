@@ -631,6 +631,7 @@ int main(int argc, char **argv)
 	flow_push_actions(my_action_list);
 	flow_push_tables(my_dyn_table_list);
 	flow_push_header_fields(my_header_list);
+	flow_push_graph_nodes(my_hdr_nodes);
 
 	nsd = nl_socket_alloc();
 	nl_socket_set_local_port(nsd, getpid());

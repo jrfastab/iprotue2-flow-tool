@@ -271,6 +271,14 @@ void flow_push_header_fields(struct net_flow_hdr **h)
 	}
 }
 
+void flow_push_graph_nodes(struct net_flow_hdr_node **n)
+{
+	int i;
+
+	for (i = 0; n[i]->uid; i++)
+		graph_nodes[n[i]->uid] = n[i];
+}
+
 /* Work with graphviz dot graphs */
 static GVC_t *gvc;
 
