@@ -469,7 +469,7 @@ enum {
 	NET_FLOW_CMD_MAX = (__NET_FLOW_CMD_MAX - 1),
 };
 
-#define NET_FLOW_GENL_NAME "net_flow_table"
+#define NET_FLOW_GENL_NAME "net_flow_nl"
 #define NET_FLOW_GENL_VERSION 0x1
 
 #endif
