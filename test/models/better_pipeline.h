@@ -279,7 +279,7 @@ struct net_flow_action_arg set_egress_port_args[2] = {
 	{
 		.name = "egress_port",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -316,7 +316,7 @@ struct net_flow_action_arg set_tunnel_id_args[2] = {
 	{
 		.name = "tunnel_id",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -335,7 +335,7 @@ struct net_flow_action_arg set_egress_queue_args[2] = {
 	{
 		.name = "egress_queue",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -354,7 +354,7 @@ struct net_flow_action_arg set_host_metadata_args[2] = {
 	{
 		.name = "host_metadata",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -373,7 +373,7 @@ struct net_flow_action_arg vxlan_decap_args[2] = {
 	{
 		.name = "vxlan_decap",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -392,7 +392,7 @@ struct net_flow_action_arg vxlan_encap_args[2] = {
 	{
 		.name = "vxlan_encap",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
-		.value_u32 = 0,
+		.v.value_u32 = 0,
 	},
 	{
 		.name = "",
@@ -666,14 +666,14 @@ struct net_flow_field_ref my_parse_ethernet[3] =
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 0x08000,
+		.v.value_u16 = 0x08000,
 	},
 	{
 		.next_node = HEADER_INSTANCE_VLAN_OUTER,
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 0x08100,
+		.v.value_u16 = 0x08100,
 	},
 	{
 		.next_node = 0,
@@ -695,7 +695,7 @@ struct net_flow_field_ref my_parse_vlan[3] =
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 0x08000,
+		.v.value_u16 = 0x08000,
 	},
 	{
 		.next_node = 0,
@@ -734,14 +734,14 @@ struct net_flow_field_ref my_parse_ipv4[3] =
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 6,
+		.v.value_u16 = 6,
 	},
 	{
 		.next_node = HEADER_INSTANCE_UDP,
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 17,
+		.v.value_u16 = 17,
 	},
 	{
 		.next_node = 0,
@@ -762,7 +762,7 @@ struct net_flow_field_ref my_parse_udp[2] =
 		.header = HEADER_UDP,
 		.field = HEADER_UDP_DST_PORT,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.value_u16 = 4789,
+		.v.value_u16 = 4789,
 		.next_node = HEADER_INSTANCE_VXLAN,
 	},
 	{

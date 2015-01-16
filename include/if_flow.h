@@ -75,7 +75,7 @@ struct net_flow_action_arg {
 		__u16 value_u16;
 		__u32 value_u32;
 		__u64 value_u64;
-	};
+	}v;
 };
 
 /**
@@ -129,7 +129,7 @@ struct net_flow_field_ref {
 			__u64 value_u64;
 			__u64 mask_u64;
 		};
-	};
+	}v;
 };
 
 /**

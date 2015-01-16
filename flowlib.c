@@ -475,28 +475,28 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 	switch (ref->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %02x (%02x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u8, ref->mask_u8);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->v.value_u8, ref->v.mask_u8);
 
 		if (e)
 			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %04x (%04x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u16, ref->mask_u16);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->v.value_u16, ref->v.mask_u16);
 		if (e)
 			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %08x (%08x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u32, ref->mask_u32);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->v.value_u32, ref->v.mask_u32);
 		if (e)
 			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%s)",
 			 headers_names(hi), fi ? fields_names(hi, fi) : empty,
-			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
-			 ll_addr_n2a((unsigned char *)&ref->mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));
+			 ll_addr_n2a((unsigned char *)&ref->v.value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
+			 ll_addr_n2a((unsigned char *)&ref->v.mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));
 		if (e)
 			agsafeset(e, label, fieldstr, empty);
 		break;
@@ -556,16 +556,16 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 
 		switch (arg->type) {
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			pfprintf(fp, print, "%02x ", arg->value_u8);
+			pfprintf(fp, print, "%02x ", arg->v.value_u8);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			pfprintf(fp, print, "%i ", arg->value_u16);
+			pfprintf(fp, print, "%i ", arg->v.value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			pfprintf(fp, print, "%i ", arg->value_u32);
+			pfprintf(fp, print, "%i ", arg->v.value_u32);
 		break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			pfprintf(fp, print, "%llu ", arg->value_u64);
+			pfprintf(fp, print, "%llu ", arg->v.value_u64);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 		default:
@@ -868,7 +868,7 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			err = -EINVAL;
 			break;
 		}
-		field->value_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_VALUE]);
+		field->v.value_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_VALUE]);
 
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
@@ -877,14 +877,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			err = -EINVAL;
 			break;
 		}
-		field->mask_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_MASK]);
+		field->v.mask_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u16)) {
 			err = -EINVAL;
 			break;
 		}
-		field->value_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_VALUE]);
+		field->v.value_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_VALUE]);
 
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
@@ -893,14 +893,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			err = -EINVAL;
 			break;
 		}
-		field->mask_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_MASK]);
+		field->v.mask_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u32)) {
 			err = -EINVAL;
 			break;
 		}
-		field->value_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_VALUE]);
+		field->v.value_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_VALUE]);
 
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
@@ -909,14 +909,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			err = -EINVAL;
 			break;
 		}
-		field->mask_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_MASK]);
+		field->v.mask_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u64)) {
 			err = -EINVAL;
 			break;
 		}
-		field->value_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_VALUE]);
+		field->v.value_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_VALUE]);
 
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
@@ -925,7 +925,7 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			err = -EINVAL;
 			break;
 		}
-		field->mask_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_MASK]);
+		field->v.mask_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	default:
 		err = -EINVAL;
@@ -976,22 +976,22 @@ static int flow_get_action_arg(struct net_flow_action_arg *arg, struct nlattr *n
 	case NET_FLOW_ACTION_ARG_TYPE_U8:
 		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u8))
 			return -EINVAL;
-		arg->value_u8 = nla_get_u8(tb[NET_FLOW_ACTION_ARG_VALUE]);
+		arg->v.value_u8 = nla_get_u8(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U16:
 		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u16))
 			return -EINVAL;
-		arg->value_u16 = nla_get_u16(tb[NET_FLOW_ACTION_ARG_VALUE]);
+		arg->v.value_u16 = nla_get_u16(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U32:
 		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u32))
 			return -EINVAL;
-		arg->value_u32 = nla_get_u32(tb[NET_FLOW_ACTION_ARG_VALUE]);
+		arg->v.value_u32 = nla_get_u32(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U64:
 		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u64))
 			return -EINVAL;
-		arg->value_u64 = nla_get_u64(tb[NET_FLOW_ACTION_ARG_VALUE]);
+		arg->v.value_u64 = nla_get_u64(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	default:
 		return -EINVAL;
@@ -1594,22 +1594,22 @@ static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
 			err = nla_put_u8(nlbuf,
 					 NET_FLOW_ACTION_ARG_VALUE,
-					 args[i].value_u8);
+					 args[i].v.value_u8);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U16:
 			err = nla_put_u16(nlbuf,
 					  NET_FLOW_ACTION_ARG_VALUE,
-					  args[i].value_u16);
+					  args[i].v.value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
 			err = nla_put_u32(nlbuf,
 					  NET_FLOW_ACTION_ARG_VALUE,
-					  args[i].value_u32);
+					  args[i].v.value_u32);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
 			err = nla_put_u64(nlbuf,
 					  NET_FLOW_ACTION_ARG_VALUE,
-					  args[i].value_u64);
+					  args[i].v.value_u64);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 		default:
@@ -1752,23 +1752,23 @@ int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref)
 
 	switch (ref->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		if (nla_put_u8(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->value_u8) ||
-		    nla_put_u8(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->mask_u8))
+		if (nla_put_u8(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->v.value_u8) ||
+		    nla_put_u8(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->v.mask_u8))
 			return -EMSGSIZE;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		if (nla_put_u16(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->value_u16) ||
-		    nla_put_u16(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->mask_u16))
+		if (nla_put_u16(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->v.value_u16) ||
+		    nla_put_u16(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->v.mask_u16))
 			return -EMSGSIZE;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		if (nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->value_u32) ||
-		    nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->mask_u32))
+		if (nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->v.value_u32) ||
+		    nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->v.mask_u32))
 			return -EMSGSIZE;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		if (nla_put_u64(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->value_u64) ||
-		    nla_put_u64(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->mask_u64))
+		if (nla_put_u64(nlbuf, NET_FLOW_FIELD_REF_VALUE, ref->v.value_u64) ||
+		    nla_put_u64(nlbuf, NET_FLOW_FIELD_REF_MASK, ref->v.mask_u64))
 			return -EMSGSIZE;
 		break;
 	default:
