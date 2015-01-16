@@ -561,12 +561,12 @@ struct net_flow_field_ref matches_tcam[20] =
 	{ .instance = HEADER_INSTANCE_VXLAN, .header = HEADER_VXLAN, .field = HEADER_VXLAN_VNI, .mask_type = NET_FLOW_MASK_TYPE_LPM},
 };
 
-int actions_ecmp_group[4] = {ACTION_ROUTE, ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-int actions_vxlan_decap[2] = {ACTION_VXLAN_DECAP,0};
-int actions_l2fwd[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-int actions_forward_group[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-int actions_tunnel_encap[2] = {ACTION_VXLAN_ENCAP, 0};
-int actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET, 0};
+__u32 actions_ecmp_group[4] = {ACTION_ROUTE, ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_vxlan_decap[2] = {ACTION_VXLAN_DECAP,0};
+__u32 actions_l2fwd[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_forward_group[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_tunnel_encap[2] = {ACTION_VXLAN_ENCAP, 0};
+__u32 actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET, 0};
 
 #define TABLE_TCAM 1
 #define TABLE_ECMP_GROUP 2
@@ -680,7 +680,7 @@ struct net_flow_field_ref my_parse_ethernet[3] =
 	},
 };
 
-int my_ethernet_headers[2] = {HEADER_ETHERNET, 0};
+__u32 my_ethernet_headers[2] = {HEADER_ETHERNET, 0};
 struct net_flow_hdr_node my_header_node_ethernet = {
 	.name = "ethernet",
 	.uid = HEADER_INSTANCE_ETHERNET,
@@ -702,7 +702,7 @@ struct net_flow_field_ref my_parse_vlan[3] =
 	},
 };
 
-int my_vlan_headers[2] = {HEADER_VLAN, 0};
+__u32 my_vlan_headers[2] = {HEADER_VLAN, 0};
 struct net_flow_hdr_node my_header_node_vlan = {
 	.name = "vlan",
 	.uid = HEADER_INSTANCE_VLAN_OUTER,
@@ -719,7 +719,7 @@ struct net_flow_field_ref my_terminal_headers[2] = {
 	},
 };
 
-int my_tcp_headers[2] = {HEADER_TCP, 0};
+__u32 my_tcp_headers[2] = {HEADER_TCP, 0};
 struct net_flow_hdr_node my_header_node_tcp = {
 	.name = "tcp",
 	.uid = HEADER_INSTANCE_TCP,
@@ -748,7 +748,7 @@ struct net_flow_field_ref my_parse_ipv4[3] =
 	},
 };
 
-int my_ipv4_headers[2] = {HEADER_IPV4, 0};
+__u32 my_ipv4_headers[2] = {HEADER_IPV4, 0};
 struct net_flow_hdr_node my_header_node_ipv4 = {
 	.name = "ipv4",
 	.uid = HEADER_INSTANCE_IPV4,
@@ -770,7 +770,7 @@ struct net_flow_field_ref my_parse_udp[2] =
 	},
 };
 
-int my_udp_headers[2] = {HEADER_UDP, 0};
+__u32 my_udp_headers[2] = {HEADER_UDP, 0};
 struct net_flow_hdr_node my_header_node_udp = {
 	.name = "udp",
 	.uid = HEADER_INSTANCE_UDP,
@@ -778,7 +778,7 @@ struct net_flow_hdr_node my_header_node_udp = {
 	.jump = my_parse_udp,
 };
 
-int my_vxlan_headers[2] = {HEADER_VXLAN, 0};
+__u32 my_vxlan_headers[2] = {HEADER_VXLAN, 0};
 struct net_flow_hdr_node my_header_node_vxlan = {
 	.name = "vxlan",
 	.uid = HEADER_INSTANCE_VXLAN,
@@ -786,7 +786,7 @@ struct net_flow_hdr_node my_header_node_vxlan = {
 	.jump = my_terminal_headers,
 };
 
-int my_metadata_headers[2] = {HEADER_METADATA, 0};
+__u32 my_metadata_headers[2] = {HEADER_METADATA, 0};
 struct net_flow_hdr_node my_header_node_routing_metadata = {
 	.name = "routing_metadata",
 	.uid = HEADER_INSTANCE_ROUTING_METADATA,
