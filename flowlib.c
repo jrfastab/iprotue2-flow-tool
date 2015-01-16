@@ -308,7 +308,7 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int 
 }
 
 /* ll_addr_a2n is a iproute 2 library call hard coded here for now */
-const char *ll_addr_a2n(char *lladdr, int len, const char *arg)
+const int ll_addr_a2n(char *lladdr, int len, const char *arg)
 {
 	int i;
 
@@ -320,10 +320,10 @@ const char *ll_addr_a2n(char *lladdr, int len, const char *arg)
 			cp++;
 		}
 		if (sscanf(arg, "%x", &temp) != 1)
-			return NULL;
+			return -EINVAL;
 		if (temp < 0 || temp > 255)
-			return NULL;
-		lladdr[i] = temp;
+			return -EINVAL;
+		lladdr[i] = (char)temp;
 		if (!cp)
 			break;
 		arg = cp;
