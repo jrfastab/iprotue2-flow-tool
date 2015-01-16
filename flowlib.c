@@ -147,7 +147,7 @@ int gen_table_id(void)
 	}
 
 	if (i == (MAX_TABLES - 1))
-		return -EBUSY;
+		return 0;
 
 	return i;
 }
@@ -271,7 +271,8 @@ void flow_pop_tables(struct net_flow_tbl *t)
 }
 void flow_push_header_fields(struct net_flow_hdr **h)
 {
-	int i, j;
+	unsigned int j;
+	int i;
 
 	for (i = 0; h[i]->uid; i++) {
 		struct net_flow_field *f = h[i]->fields;
@@ -299,7 +300,7 @@ void flow_init_graph()
 }
 
 /* ll_addr_n2a is a iproute 2 library call hard coded here for now */
-const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int blen)
+const char *ll_addr_n2a(unsigned char *addr, int alen, char *buf, int blen)
 {
 	int i;
 	int l = 0;
@@ -319,12 +320,12 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int 
 }
 
 /* ll_addr_a2n is a iproute 2 library call hard coded here for now */
-const int ll_addr_a2n(char *lladdr, int len, const char *arg)
+int ll_addr_a2n(char *lladdr, int len, char *arg)
 {
 	int i;
 
 	for (i=0; i<len; i++) {
-		int temp;
+		unsigned int temp;
 		char *cp = strchr(arg, ':');
 		if (cp) {
 			*cp = 0;
@@ -332,7 +333,7 @@ const int ll_addr_a2n(char *lladdr, int len, const char *arg)
 		}
 		if (sscanf(arg, "%x", &temp) != 1)
 			return -EINVAL;
-		if (temp < 0 || temp > 255)
+		if (temp > 255)
 			return -EINVAL;
 		lladdr[i] = (char)temp;
 		if (!cp)
@@ -496,8 +497,8 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%s)",
 			 headers_names(hi), fi ? fields_names(hi, fi) : empty,
-			 ll_addr_n2a((unsigned char *)&ref->v.u64.value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
-			 ll_addr_n2a((unsigned char *)&ref->v.u64.mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));
+			 ll_addr_n2a((unsigned char *)&ref->v.u64.value_u64, ETH_ALEN, b1, sizeof(b1)),
+			 ll_addr_n2a((unsigned char *)&ref->v.u64.mask_u64, ETH_ALEN, b1, sizeof(b1)));
 		if (e)
 			agsafeset(e, label, fieldstr, empty);
 		break;
@@ -622,10 +623,7 @@ void pp_header(FILE *fp, int print, struct net_flow_hdr *header)
 	for (f = &header->fields[i];
 	     f->uid;
 	     f = &header->fields[++i]) {
-		if (f->bitwidth >= 0)
-			pfprintf(fp, print, " %s:%u ", f->name, f->bitwidth);
-		else
-			pfprintf(fp, print, " %s:* ", f->name);
+		pfprintf(fp, print, " %s:* ", f->name);
 
 		if (i && !(i % 5))
 			pfprintf(fp, print, " \n\t");
@@ -667,7 +665,7 @@ static void pp_jump_table(FILE *fp, int print,
 		return;
 
 	pp_field_ref(fp, print, jump, 0, false, NULL);
-	if (jump->next_node < 0)
+	if (!jump->next_node)
 		pfprintf(fp, print, " -> terminal\n");
 	else {
 		pfprintf(fp, print, " -> %s\n", table_names(jump->next_node));
@@ -715,7 +713,8 @@ static void pp_tbl_node_flags(FILE *fp, int print, __u32 flags)
  
 void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 {
-	int i, j, src = -1;
+	unsigned int src = -1;
+	int i, j;
 
 	if (!print)
 		return;
@@ -747,7 +746,7 @@ static void ppg_jump_table(struct net_flow_field_ref *jump,
 		agedge(g, n, graphviz_table_nodes[jump->next_node], 0, 1);
 }
 
-void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
+void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes)
 {
 	Agraph_t *s = NULL, *g = agopen(agopen_g, Agdirected, 0);
 	char srcstr[80];
@@ -826,7 +825,7 @@ void pp_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes)
 		pfprintf(fp, print, "\n");	
 		for (j = 0; nodes[i].jump[j].next_node; ++j) {
 			pp_field_ref(fp, print, &nodes[i].jump[j], 0, false, NULL);
-			if (nodes[i].jump[j].next_node < 0)
+			if (!nodes[i].jump[j].next_node)
 				pfprintf(fp, print, " -> terminal\n");
 			else
 				pfprintf(fp, print, " -> %s\n", graph_names(nodes[i].jump[j].next_node));
@@ -866,7 +865,7 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 
 	switch (field->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u8)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < (int)sizeof(__u8)) {
 			err = -EINVAL;
 			break;
 		}
@@ -875,14 +874,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
 
-		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < sizeof(__u8)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < (int)sizeof(__u8)) {
 			err = -EINVAL;
 			break;
 		}
 		field->v.u8.mask_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u16)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < (int)sizeof(__u16)) {
 			err = -EINVAL;
 			break;
 		}
@@ -891,14 +890,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
 
-		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < sizeof(__u16)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < (int)sizeof(__u16)) {
 			err = -EINVAL;
 			break;
 		}
 		field->v.u16.mask_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u32)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < (int)sizeof(__u32)) {
 			err = -EINVAL;
 			break;
 		}
@@ -907,14 +906,14 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
 
-		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < sizeof(__u32)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < (int)sizeof(__u32)) {
 			err = -EINVAL;
 			break;
 		}
 		field->v.u32.mask_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_MASK]);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < sizeof(__u64)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_VALUE]) < (int)sizeof(__u64)) {
 			err = -EINVAL;
 			break;
 		}
@@ -923,7 +922,7 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 		if (!ref[NET_FLOW_FIELD_REF_MASK])
 			break;
 
-		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < sizeof(__u64)) {
+		if (nla_len(ref[NET_FLOW_FIELD_REF_MASK]) < (int)sizeof(__u64)) {
 			err = -EINVAL;
 			break;
 		}
@@ -976,22 +975,22 @@ static int flow_get_action_arg(struct net_flow_action_arg *arg, struct nlattr *n
 
 	switch (arg->type) {
 	case NET_FLOW_ACTION_ARG_TYPE_U8:
-		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u8))
+		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < (int)sizeof(__u8))
 			return -EINVAL;
 		arg->v.value_u8 = nla_get_u8(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U16:
-		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u16))
+		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < (int)sizeof(__u16))
 			return -EINVAL;
 		arg->v.value_u16 = nla_get_u16(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U32:
-		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u32))
+		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < (int)sizeof(__u32))
 			return -EINVAL;
 		arg->v.value_u32 = nla_get_u32(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
 	case NET_FLOW_ACTION_ARG_TYPE_U64:
-		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < sizeof(__u64))
+		if (nla_len(tb[NET_FLOW_ACTION_ARG_VALUE]) < (int)sizeof(__u64))
 			return -EINVAL;
 		arg->v.value_u64 = nla_get_u64(tb[NET_FLOW_ACTION_ARG_VALUE]);
 		break;
@@ -1017,7 +1016,7 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 		return -EINVAL;
 	}
 
-	uid = action[NET_FLOW_ACTION_ATTR_UID] ? nla_get_u32(action[NET_FLOW_ACTION_ATTR_UID]) : -1;
+	uid = action[NET_FLOW_ACTION_ATTR_UID] ? (int) nla_get_u32(action[NET_FLOW_ACTION_ATTR_UID]) : -1;
 	if (uid < 0)
 		return 0;
 
@@ -1561,7 +1560,7 @@ int flow_get_tbl_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_t
 		}
 	}	
 	if (print == PRINT_GRAPHVIZ)
-		ppg_table_graph(fp, print, nodes);
+		ppg_table_graph(fp, nodes);
 	else if (print)
 		pp_table_graph(fp, print, nodes);
 	if (ref)

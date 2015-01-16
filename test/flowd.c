@@ -265,13 +265,13 @@ static struct nla_policy flow_table_flows_policy[NET_FLOW_TABLE_FLOWS_MAX + 1] =
 static int flow_cmd_get_flows(struct nlmsghdr *nlh)
 {
 	struct nlattr *tb[NET_FLOW_MAX+1];
-	int table = 0, min = 0, max = 0;
+	unsigned int table = 0, min = 0, max = 0;
 	int err, ifindex = 0;
 	struct nl_msg *nlbuf;
 #ifdef FLOWD_MOCK_SUPPORT
 	struct net_flow_flow *flows;
 	struct nlattr *nest;
-	int i;
+	unsigned int i;
 #endif
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_FLOWS, NLM_F_REQUEST|NLM_F_ACK, 0);
@@ -440,12 +440,12 @@ static int flow_cmd_flows(struct nlmsghdr *nlh)
 	return nl_send_auto(nsd, nlbuf);
 }
 
-static int flow_cmd_update_flows(struct nlmsghdr *nlh)
+static int flow_cmd_update_flows(struct nlmsghdr *UNUSED(nlh))
 {
 	return -EOPNOTSUPP;
 }
 
-static bool flow_is_dynamic_table(int uid)
+static bool flow_is_dynamic_table(unsigned int uid)
 {
 	int i;
 
@@ -574,7 +574,7 @@ static int(*type_cb[NET_FLOW_CMD_MAX+1])(struct nlmsghdr *nlh) = {
 	flow_cmd_table,
 };
 
-int rx_process(struct nlmsghdr *nlh, size_t len)
+int rx_process(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	int type;
@@ -647,7 +647,7 @@ int main(int argc, char **argv)
 		}
 		//printf("%s:recvfrom received %d bytes from pid %d\n", __func__, rc, dest_addr.nl_pid);
 
-		err = rx_process((struct nlmsghdr *)buf, rc);
+		err = rx_process((struct nlmsghdr *)buf);
 		if (err < 0)
 			fprintf(stderr, "%s: Warning: parsing error\n", __func__);
 		memset(buf, 0, rcv_size);

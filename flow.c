@@ -59,7 +59,7 @@ struct flow_msg {
 	struct nl_msg *nlbuf;
 	int refcnt;
 	LIST_ENTRY(flow_msg) ack_list_element;
-	int seq;
+	unsigned int seq;
 	void (*ack_cb)(struct flow_msg *amsg, struct flow_msg *msg, int err);
 };
 
@@ -116,14 +116,6 @@ void set_ack_cb(struct flow_msg *msg,
 	msg->ack_cb = cb;
 	msg->refcnt++;
 	LIST_INSERT_HEAD(&ack_list_head, msg, ack_list_element);
-}
-
-void handle_flow_table_get_tables(struct flow_msg *amsg, struct flow_msg *msg, int err)
-{
-	if (err) {
-		fprintf(stderr, "Netlink request error: %s\n", strerror(err));
-		return;
-	}
 }
 
 struct flow_msg *wrap_netlink_msg(struct nlmsghdr *buf)
@@ -191,7 +183,7 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 		return -ENOMSG;
 	}
 
-	if (nla_len(tb[NET_FLOW_IDENTIFIER_TYPE]) < sizeof(type)) {
+	if (nla_len(tb[NET_FLOW_IDENTIFIER_TYPE]) < (int)sizeof(type)) {
 		fprintf(stderr, "Warning invalid identifier type len\n");
 		return -EINVAL;
 	}
@@ -343,14 +335,6 @@ static void flow_table_cmd_get_flows(struct flow_msg *msg, int verbose)
 		flow_get_flows(stdout, verbose, tb[NET_FLOW_FLOWS], NULL);
 }
 
-void handle_flow_set_error(struct flow_msg *amsg, struct flow_msg *msg, int err)
-{
-	if (err)
-		fprintf(stderr, "Error, set flow aborted: %s\n", strerror(err));
-
-	return;
-}
-
 static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 {
 	struct nlmsghdr *nlh = msg->msg;
@@ -373,7 +357,7 @@ static void flow_table_cmd_set_flows(struct flow_msg *msg, int verbose)
 	}
 }
 
-static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
+static void flow_table_cmd_del_flows(struct flow_msg *msg, int UNUSED(verbose))
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct nlattr *tb[NET_FLOW_MAX+1];
@@ -388,7 +372,7 @@ static void flow_table_cmd_del_flows(struct flow_msg *msg, int verbose)
 	fprintf(stderr, "delete flow cmd not supported\n");
 }
 
-static void flow_table_cmd_update_flows(struct flow_msg *msg, int verbose)
+static void flow_table_cmd_update_flows(struct flow_msg *msg, int UNUSED(verbose))
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct nlattr *tb[NET_FLOW_MAX+1];
@@ -402,7 +386,7 @@ static void flow_table_cmd_update_flows(struct flow_msg *msg, int verbose)
 	fprintf(stderr, "update flow cmd not supported\n");
 }
 
-static void flow_table_cmd_create_table(struct flow_msg *msg, int verbose)
+static void flow_table_cmd_create_table(struct flow_msg *msg, int UNUSED(verbose))
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct nlattr *tb[NET_FLOW_MAX+1];
@@ -415,7 +399,7 @@ static void flow_table_cmd_create_table(struct flow_msg *msg, int verbose)
 	}
 }
 
-static void flow_table_cmd_destroy_table(struct flow_msg *msg, int verbose)
+static void flow_table_cmd_destroy_table(struct flow_msg *msg, int UNUSED(verbose))
 {
 	struct nlmsghdr *nlh = msg->msg;
 	struct nlattr *tb[NET_FLOW_MAX+1];
@@ -557,7 +541,7 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	char *strings, *instance, *s_fld, *has_dots;
 	struct net_flow_hdr_node *hdr_node;
 	struct net_flow_field *field;
-	int advance = 0, err = 0;
+	int node, advance = 0, err = 0;
 
 	NEXT_ARG();
 	strings = *argv;
@@ -578,9 +562,10 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	if (!s_fld)
 		return -EINVAL;
 
-	match->instance = find_header_node(instance);
-	if (match->instance < 0)
+	node = find_header_node(instance);
+	if (node < 0)
 		return -EINVAL;
+	match->instance = node;
 
 	hdr_node = get_graph_node(match->instance);	
 	if (!hdr_node) /* with an abundance of caution */
@@ -598,9 +583,10 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		return -EINVAL;
 
 	match->header = hdr_node->hdrs[0];
-	match->field = find_field(s_fld, match->header);
-	if (match->field < 0)
+	node = find_field(s_fld, match->header);
+	if (node < 0)
 		return -EINVAL;
+	match->field = node;
 
 	field = get_fields(match->header, match->field);
 	if (!field)
@@ -918,7 +904,6 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 	nla_nest_end(msg->nlbuf, nest1);
 	nla_nest_end(msg->nlbuf, nest);
 
-	set_ack_cb(msg, handle_flow_table_get_tables);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -986,7 +971,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 
 	if (!table.uid) {
 		table.uid = gen_table_id();
-		if (table.uid < 0) {
+		if (!table.uid) {
 			fprintf(stderr, "Could not generate unique table id! Too many tables\n");
 			exit(-1);
 		}
@@ -1054,7 +1039,6 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 	nla_nest_end(msg->nlbuf, nest1);
 	nla_nest_end(msg->nlbuf, nest);
 
-	set_ack_cb(msg, handle_flow_table_get_tables);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -1121,7 +1105,6 @@ int flow_del_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	flow_put_flow(msg->nlbuf, &flow);
 	nla_nest_end(msg->nlbuf, flows);
 
-	set_ack_cb(msg, handle_flow_table_get_tables);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -1213,7 +1196,6 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	if (err)
 		return err;
 
-	set_ack_cb(msg, handle_flow_set_error);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -1313,14 +1295,13 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	flow_put_flow(msg->nlbuf, &flow);
 	nla_nest_end(msg->nlbuf, flows);
 
-	set_ack_cb(msg, handle_flow_set_error);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
 	return 0;
 }
 
-int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd, int tableid)
+int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd)
 {
 	struct flow_msg *msg;
 
@@ -1337,7 +1318,6 @@ int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd, int t
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX);
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex);
 
-	set_ack_cb(msg, handle_flow_table_get_tables);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -1348,7 +1328,7 @@ int main(int argc, char **argv)
 {
 	int cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
 	int family = -1, err, ifindex = 0, pid = 0;
-	int tableid = 0, verbose = 1;
+	int verbose = 1;
 	bool resolve_names = true;
 	struct nl_sock *fd;
 	int opt;
@@ -1459,16 +1439,16 @@ int main(int argc, char **argv)
 	}
 
 	if (resolve_names) {
-		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HEADERS);
 		if (err)
 			goto out;
-		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_ACTIONS, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_ACTIONS);
 		if (err)
 			goto out;
-		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_TABLES);
 		if (err)
 			goto out;
-		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HDR_GRAPH, 0);
+		err = flow_send_recv(0, pid, family, ifindex, NET_FLOW_TABLE_CMD_GET_HDR_GRAPH);
 		if (err)
 			goto out;
 	}
@@ -1490,7 +1470,7 @@ int main(int argc, char **argv)
 		flow_destroy_tbl_send(verbose, pid, family, ifindex, argc, argv);
 		break;
 	default:
-		flow_send_recv(verbose, pid, family, ifindex, cmd, tableid);
+		flow_send_recv(verbose, pid, family, ifindex, cmd);
 		break;
 	}
 out:

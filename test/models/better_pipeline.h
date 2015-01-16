@@ -659,21 +659,27 @@ struct net_flow_tbl *my_table_list[7] =
  * Jump Table
  ********************************************************************/
 
-struct net_flow_field_ref my_parse_ethernet[3] =
+struct net_flow_field_ref my_parse_ethernet[] =
 {
 	{
 		.next_node = HEADER_INSTANCE_IPV4,
+		.instance = 0,
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 0x08000,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = HEADER_INSTANCE_VLAN_OUTER,
+		.instance = 0,
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 0x08100,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = 0,
@@ -692,10 +698,13 @@ struct net_flow_field_ref my_parse_vlan[3] =
 {
 	{
 		.next_node = HEADER_INSTANCE_IPV4,
+		.instance = 0,
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 0x08000,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = 0,
@@ -731,20 +740,27 @@ struct net_flow_field_ref my_parse_ipv4[3] =
 {
 	{
 		.next_node = HEADER_INSTANCE_TCP,
+		.instance = 0,
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 6,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = HEADER_INSTANCE_UDP,
+		.instance = 0,
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 17,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = 0,
+		.instance = 0,
 	},
 };
 
@@ -759,14 +775,18 @@ struct net_flow_hdr_node my_header_node_ipv4 = {
 struct net_flow_field_ref my_parse_udp[2] =
 {
 	{
+		.next_node = HEADER_INSTANCE_VXLAN,
+		.instance = 0,
 		.header = HEADER_UDP,
 		.field = HEADER_UDP_DST_PORT,
+		.mask_type = 0,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		.v.u16.value_u16 = 4789,
-		.next_node = HEADER_INSTANCE_VXLAN,
+		.v.u16.mask_u16 = 0,
 	},
 	{
 		.next_node = 0,
+		.instance = 0,
 	},
 };
 
