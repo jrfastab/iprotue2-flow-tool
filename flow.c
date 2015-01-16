@@ -36,6 +36,9 @@
 #include <unistd.h>
 #include <inttypes.h>
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <getopt.h>
 
 #include <libnl3/netlink/netlink.h>
