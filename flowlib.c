@@ -56,6 +56,16 @@
 #define MAX_ACTIONS 200
 #define MAX_NODES 200
 
+static char none[] = "<none>";
+static char label[] = "label";
+static char any[] = "<any>";
+static char empty[] = "";
+static char agopen_g[] = "g";
+static char rankdir[] = "rankdir";
+static char LR[] = "LR";
+static char shape[] = "shape";
+static char record[] = "record";
+
 Agnode_t *graphviz_table_nodes[MAX_NODES];
 Agnode_t *graphviz_header_nodes[MAX_NODES];
 
@@ -67,7 +77,7 @@ struct net_flow_hdr_node *graph_nodes[MAX_NODES];
 
 char *graph_names(int uid)
 {
-	return graph_nodes[uid] ? graph_nodes[uid]->name : "<none>";
+	return graph_nodes[uid] ? graph_nodes[uid]->name : none;
 }
 
 struct net_flow_hdr_node *get_graph_node(int uid)
@@ -77,7 +87,7 @@ struct net_flow_hdr_node *get_graph_node(int uid)
 
 char *headers_names(int uid)
 {
-	return headers[uid] ? headers[uid]->name : "<none>";
+	return headers[uid] ? headers[uid]->name : none;
 }
 
 struct net_flow_hdr *get_headers(int uid)
@@ -87,7 +97,7 @@ struct net_flow_hdr *get_headers(int uid)
 
 char *fields_names(int hid, int fid)
 {
-	return header_fields[hid][fid] ? header_fields[hid][fid]->name : "<none>";
+	return header_fields[hid][fid] ? header_fields[hid][fid]->name : none;
 }
 
 struct net_flow_field *get_fields(int huid, int uid)
@@ -97,7 +107,7 @@ struct net_flow_field *get_fields(int huid, int uid)
 
 char *table_names(int uid)
 {
-	return tables[uid] ? tables[uid]->name : "<none>";
+	return tables[uid] ? tables[uid]->name : none;
 }
 
 struct net_flow_tbl *get_tables(int uid)
@@ -438,16 +448,16 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 		if (!ref->header && !ref->field) {
 			pfprintf(fp, print, "\t <any>");
 			if (e)
-				agsafeset(e, "label", "<any>", "");
+				agsafeset(e, label, any, empty);
 		} else if (!first) {
-			pfprintf(fp, print, " %s", fi ? fields_names(hi, fi) : "");
+			pfprintf(fp, print, " %s", fi ? fields_names(hi, fi) : empty);
 			if (e)
-				agsafeset(e, "label", fi ? fields_names(hi, fi) : "", "");
+				agsafeset(e, label, fi ? fields_names(hi, fi) : empty, empty);
 		} else {
 			pfprintf(fp, print, "\n\t field: %s [%s",
-				 graph_names(inst), fi ? fields_names(hi, fi) : "");
+				 graph_names(inst), fi ? fields_names(hi, fi) : empty);
 			if (e)
-				agsafeset(e, "label", fi ? fields_names(hi, fi) : "", "");
+				agsafeset(e, label, fi ? fields_names(hi, fi) : empty, empty);
 		}
 
 		switch (ref->mask_type) {
@@ -465,30 +475,30 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 	switch (ref->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %02x (%02x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u8, ref->mask_u8);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u8, ref->mask_u8);
 
 		if (e)
-			agsafeset(e, "label", fieldstr, "");
+			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %04x (%04x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u16, ref->mask_u16);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u16, ref->mask_u16);
 		if (e)
-			agsafeset(e, "label", fieldstr, "");
+			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %08x (%08x)",
-			headers_names(hi), fi ? fields_names(hi, fi) : "", ref->value_u32, ref->mask_u32);
+			headers_names(hi), fi ? fields_names(hi, fi) : empty, ref->value_u32, ref->mask_u32);
 		if (e)
-			agsafeset(e, "label", fieldstr, "");
+			agsafeset(e, label, fieldstr, empty);
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		snprintf(fieldstr, fieldlen, "\t %s.%s = %s (%s)",
-			 headers_names(hi), fi ? fields_names(hi, fi) : "",
+			 headers_names(hi), fi ? fields_names(hi, fi) : empty,
 			 ll_addr_n2a((unsigned char *)&ref->value_u64, ETH_ALEN, 0, b1, sizeof(b1)),
 			 ll_addr_n2a((unsigned char *)&ref->mask_u64, ETH_ALEN, 0, b1, sizeof(b1)));
 		if (e)
-			agsafeset(e, "label", fieldstr, "");
+			agsafeset(e, label, fieldstr, empty);
 		break;
 	default:
 		break;
@@ -532,7 +542,7 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 	struct net_flow_action_arg *arg;
 	int i;
 
-	pfprintf(fp, print, "\t   %i: %s ( ", act->uid, act->name ? act->name : "");
+	pfprintf(fp, print, "\t   %i: %s ( ", act->uid, act->name ? act->name : empty);
 
 	if (!act->args)
 		goto out;
@@ -542,7 +552,7 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 
 		pfprintf(fp, print, "%s %s ",
 			 flow_table_arg_type_str[arg->type],
-			 arg->name ? arg->name : "");
+			 arg->name ? arg->name : empty);
 
 		switch (arg->type) {
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
@@ -738,11 +748,11 @@ static void ppg_jump_table(struct net_flow_field_ref *jump,
 
 void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 {
-	Agraph_t *s = NULL, *g = agopen("g", Agdirected, 0);
+	Agraph_t *s = NULL, *g = agopen(agopen_g, Agdirected, 0);
 	int i, j, src = -1;
 	char srcstr[80];
 
-	agsafeset(g, "rankdir", "LR", "");
+	agsafeset(g, rankdir, LR, empty);
 	for (i = 0; nodes[i].uid; i++) {
 		struct net_flow_tbl *t = get_tables(nodes[i].uid);
 		Agnode_t *n;
@@ -752,12 +762,12 @@ void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 			sprintf(srcstr, "cluster-%i", src);
 			s = agsubg(g, srcstr, 1);
 			sprintf(srcstr, "source-%i", src);
-			agsafeset(s, "label", srcstr, "");
+			agsafeset(s, label, srcstr, empty);
 		}
 
 		n = agnode(s, table_names(nodes[i].uid), 1);
 
-		agsafeset(n, "shape", "record", ""); /* use record boxes */
+		agsafeset(n, shape, record, empty); /* use record boxes */
 		graphviz_table_nodes[nodes[i].uid] = n;
 	}
 
@@ -772,7 +782,7 @@ void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 
 void ppg_header_graph(FILE *fp, struct net_flow_hdr_node *nodes)
 {
-	Agraph_t *g = agopen("g", Agdirected, 0);
+	Agraph_t *g = agopen(agopen_g, Agdirected, 0);
 	Agedge_t *e;
 	int i, j;
 
@@ -1025,7 +1035,7 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 	} else if (act && act->uid) {
 		name = act->name;
 	} else {
-		name = "<none>";
+		name = none;
 	}
 
 
@@ -1133,7 +1143,7 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 		return err;
 	}
 
-	name = table[NET_FLOW_TABLE_ATTR_NAME] ? nla_get_string(table[NET_FLOW_TABLE_ATTR_NAME]) : "<none>",
+	name = table[NET_FLOW_TABLE_ATTR_NAME] ? nla_get_string(table[NET_FLOW_TABLE_ATTR_NAME]) : none,
 	uid = table[NET_FLOW_TABLE_ATTR_UID] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_UID]) : 0;
 
 	src = table[NET_FLOW_TABLE_ATTR_SOURCE] ? nla_get_u32(table[NET_FLOW_TABLE_ATTR_SOURCE]) : 0;
@@ -1310,7 +1320,7 @@ int flow_get_table_field(FILE *UNUSED(fp), int UNUSED(print), struct nlattr *nl,
 		f->uid = field[NET_FLOW_FIELD_ATTR_UID] ?
 			 nla_get_u32(field[NET_FLOW_FIELD_ATTR_UID]) : 0;
 		f->name = strdup((field[NET_FLOW_FIELD_ATTR_NAME] ? 
-			  nla_get_string(field[NET_FLOW_FIELD_ATTR_NAME]) : "<none>"));
+			  nla_get_string(field[NET_FLOW_FIELD_ATTR_NAME]) : none));
 		f->bitwidth = field[NET_FLOW_FIELD_ATTR_BITWIDTH] ?
 			      nla_get_u32(field[NET_FLOW_FIELD_ATTR_BITWIDTH]) : 0;
 		header_fields[hdr->uid][f->uid] = f;
@@ -1355,7 +1365,7 @@ int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_hdr
 				nla_get_u32(hdr[NET_FLOW_HEADER_ATTR_UID]) : 0;
 		header->name =
 			strdup(hdr[NET_FLOW_HEADER_ATTR_NAME] ?
-				nla_get_string(hdr[NET_FLOW_HEADER_ATTR_NAME]) : "");
+				nla_get_string(hdr[NET_FLOW_HEADER_ATTR_NAME]) : empty);
 		flow_get_table_field(fp, print, hdr[NET_FLOW_HEADER_ATTR_FIELDS], header);
 		headers[header->uid] = header;
 		pp_header(fp, print, header);
