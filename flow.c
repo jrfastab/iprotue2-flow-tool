@@ -623,17 +623,17 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	NEXT_ARG();
 	if (field->bitwidth <= 8) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8;
-		err = sscanf(*argv, "0x%" SCNx8 "", &match->v.value_u8);
+		err = sscanf(*argv, "0x%" SCNx8 "", &match->v.u8.value_u8);
 		if (err != 1)
-			err = sscanf(*argv, "%" SCNu8 "", &match->v.value_u8);
+			err = sscanf(*argv, "%" SCNu8 "", &match->v.u8.value_u8);
 
 		if (err != 1)
 			return -EINVAL;
 	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
-		err = sscanf(*argv, "0x%" SCNx16 "", &match->v.value_u16);
+		err = sscanf(*argv, "0x%" SCNx16 "", &match->v.u16.value_u16);
 		if (err != 1)
-			err = sscanf(*argv, "%" SCNu16 "", &match->v.value_u16);
+			err = sscanf(*argv, "%" SCNu16 "", &match->v.u16.value_u16);
 
 		if (err != 1)
 			return -EINVAL;
@@ -642,29 +642,29 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		has_dots = strtok(*argv, " ");
 		if (strchr(has_dots, '.')) {
 			err = inet_aton(*argv,
-				(struct in_addr *)&match->v.value_u32);
+				(struct in_addr *)&match->v.u32.value_u32);
 			if (!err)
 				return -EINVAL;
 		} else {
 			err = sscanf(*argv, "0x%" SCNx32 "",
-					&match->v.value_u32);
+					&match->v.u32.value_u32);
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu32 "",
-						&match->v.value_u32);
+						&match->v.u32.value_u32);
 			if (err != 1)
 				return -EINVAL;
 		}
 	} else if (field->bitwidth <= 64) {
 		errno = 0;
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
-		err = ll_addr_a2n((char *)&match->v.value_u64,
-				sizeof(match->v.value_u64), *argv);
+		err = ll_addr_a2n((char *)&match->v.u64.value_u64,
+				sizeof(match->v.u64.value_u64), *argv);
 		if (err < ETH_ALEN) {
 			err = sscanf(*argv, "0x%" SCNx64 "",
-					&match->v.value_u64);
+					&match->v.u64.value_u64);
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu64 "",
-					&match->v.value_u64);
+					&match->v.u64.value_u64);
 			if (err != 1)
 				return -EINVAL;
 		}
@@ -674,16 +674,16 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	NEXT_ARG(); /* need a mask if its not an exact match */
 	switch (match->type) {
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		err = sscanf(*argv, "0x%" SCNx8 "", &match->v.mask_u8);
+		err = sscanf(*argv, "0x%" SCNx8 "", &match->v.u8.mask_u8);
 		if (err != 1)
-			err = sscanf(*argv, "%" SCNu8 "", &match->v.mask_u8);
+			err = sscanf(*argv, "%" SCNu8 "", &match->v.u8.mask_u8);
 		if (err != 1)
 			return -EINVAL;
 		break;
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		err = sscanf(*argv, "0x%" SCNx16 "", &match->v.mask_u16);
+		err = sscanf(*argv, "0x%" SCNx16 "", &match->v.u16.mask_u16);
 		if (err != 1)
-			err = sscanf(*argv, "%" SCNu16 "", &match->v.mask_u16);
+			err = sscanf(*argv, "%" SCNu16 "", &match->v.u16.mask_u16);
 		if (err != 1)
 			return -EINVAL;
 		break;
@@ -691,15 +691,15 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		has_dots = strtok(*argv, " ");
 		if (strchr(has_dots, '.')) {
 			err = inet_aton(*argv,
-					(struct in_addr *)&match->v.mask_u32);
+					(struct in_addr *)&match->v.u32.mask_u32);
 			if (!err)
 				return -EINVAL;
 		} else {
 			err = sscanf(*argv, "0x%" SCNx32 "",
-					&match->v.mask_u32);
+					&match->v.u32.mask_u32);
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu32 "",
-					&match->v.mask_u32);
+					&match->v.u32.mask_u32);
 			if (err != 1)
 				return -EINVAL;
 		}
@@ -707,13 +707,13 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
 		errno = 0;
 		
-		err = ll_addr_a2n((char *)&match->v.mask_u64,
-				sizeof(match->v.mask_u64), *argv);
+		err = ll_addr_a2n((char *)&match->v.u64.mask_u64,
+				sizeof(match->v.u64.mask_u64), *argv);
 		if (err < ETH_ALEN) {
-			err = sscanf(*argv, "0x%" SCNx64 "", &match->v.mask_u64);
+			err = sscanf(*argv, "0x%" SCNx64 "", &match->v.u64.mask_u64);
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu64 "",
-						&match->v.mask_u64);
+						&match->v.u64.mask_u64);
 			if (err != 1)
 				return -EINVAL;
 		}

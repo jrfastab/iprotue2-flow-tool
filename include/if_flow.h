@@ -116,19 +116,19 @@ struct net_flow_field_ref {
 		struct {
 			__u8 value_u8;
 			__u8 mask_u8;
-		};
+		} u8;
 		struct {
 			__u16 value_u16;
 			__u16 mask_u16;
-		};
+		} u16;
 		struct {
 			__u32 value_u32;
 			__u32 mask_u32;
-		};
+		} u32;
 		struct {
 			__u64 value_u64;
 			__u64 mask_u64;
-		};
+		} u64;
 	}v;
 };
 

@@ -666,14 +666,14 @@ struct net_flow_field_ref my_parse_ethernet[3] =
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 0x08000,
+		.v.u16.value_u16 = 0x08000,
 	},
 	{
 		.next_node = HEADER_INSTANCE_VLAN_OUTER,
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 0x08100,
+		.v.u16.value_u16 = 0x08100,
 	},
 	{
 		.next_node = 0,
@@ -695,7 +695,7 @@ struct net_flow_field_ref my_parse_vlan[3] =
 		.header = HEADER_ETHERNET,
 		.field = HEADER_ETHERNET_ETHERTYPE,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 0x08000,
+		.v.u16.value_u16 = 0x08000,
 	},
 	{
 		.next_node = 0,
@@ -734,14 +734,14 @@ struct net_flow_field_ref my_parse_ipv4[3] =
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 6,
+		.v.u16.value_u16 = 6,
 	},
 	{
 		.next_node = HEADER_INSTANCE_UDP,
 		.header = HEADER_IPV4,
 		.field = HEADER_IPV4_PROTOCOL,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 17,
+		.v.u16.value_u16 = 17,
 	},
 	{
 		.next_node = 0,
@@ -762,7 +762,7 @@ struct net_flow_field_ref my_parse_udp[2] =
 		.header = HEADER_UDP,
 		.field = HEADER_UDP_DST_PORT,
 		.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
-		.v.value_u16 = 4789,
+		.v.u16.value_u16 = 4789,
 		.next_node = HEADER_INSTANCE_VXLAN,
 	},
 	{
