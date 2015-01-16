@@ -33,6 +33,7 @@
 #include <sys/queue.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <inttypes.h>
 
 #include <getopt.h>
 
@@ -559,13 +560,13 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 			pfprintf(fp, print, "%02x ", arg->v.value_u8);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			pfprintf(fp, print, "%i ", arg->v.value_u16);
+			pfprintf(fp, print, "%" PRIu16 "", arg->v.value_u16);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			pfprintf(fp, print, "%i ", arg->v.value_u32);
+			pfprintf(fp, print, "%" PRIu32 "", arg->v.value_u32);
 		break;
 		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			pfprintf(fp, print, "%llu ", arg->v.value_u64);
+			pfprintf(fp, print, "%" PRIu64 "", arg->v.value_u64);
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 		default:
@@ -588,7 +589,7 @@ void pp_table(FILE *fp, int print, struct net_flow_tbl *table)
 {
 	int i;
 
-	pfprintf(fp, print, "\n%s:%i src %i apply %i size %i\n",
+	pfprintf(fp, print, "\n%s:%u src %u apply %u size %u\n",
 		 table->name, table->uid, table->source, table->apply_action, table->size);
 
 	pfprintf(fp, print, "  matches:");
@@ -622,7 +623,7 @@ void pp_header(FILE *fp, int print, struct net_flow_hdr *header)
 	     f->uid;
 	     f = &header->fields[++i]) {
 		if (f->bitwidth >= 0)
-			pfprintf(fp, print, " %s:%i ", f->name, f->bitwidth);
+			pfprintf(fp, print, " %s:%u ", f->name, f->bitwidth);
 		else
 			pfprintf(fp, print, " %s:* ", f->name);
 
@@ -637,9 +638,9 @@ void pp_header(FILE *fp, int print, struct net_flow_hdr *header)
 
 void pp_flow(FILE *fp, int print, struct net_flow_flow *flow)
 {
-	pfprintf(fp, print, "table : %i  ", flow->table_id);
-	pfprintf(fp, print, "uid : %i  ", flow->uid);
-	pfprintf(fp, print, "prio : %i\n", flow->priority);
+	pfprintf(fp, print, "table : %u  ", flow->table_id);
+	pfprintf(fp, print, "uid : %u  ", flow->uid);
+	pfprintf(fp, print, "prio : %u\n", flow->priority);
 
 	if (flow->matches)
 		pp_fields(fp, print, flow->matches);	
@@ -728,7 +729,7 @@ void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 
 		if (src != t->source) {
 			src = t->source;
-			pfprintf(fp, print, "source: %i\n", src);
+			pfprintf(fp, print, "source: %u\n", src);
 		}
 
 		pfprintf(fp, print, "\t%s: ", table_names(nodes[i].uid));
@@ -749,8 +750,9 @@ static void ppg_jump_table(struct net_flow_field_ref *jump,
 void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 {
 	Agraph_t *s = NULL, *g = agopen(agopen_g, Agdirected, 0);
-	int i, j, src = -1;
 	char srcstr[80];
+	__u32 src = 0;
+	int i, j;
 
 	agsafeset(g, rankdir, LR, empty);
 	for (i = 0; nodes[i].uid; i++) {
@@ -759,9 +761,9 @@ void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 
 		if (src != t->source) {
 			src = t->source;
-			sprintf(srcstr, "cluster-%i", src);
+			sprintf(srcstr, "cluster-%u", src);
 			s = agsubg(g, srcstr, 1);
-			sprintf(srcstr, "source-%i", src);
+			sprintf(srcstr, "source-%u", src);
 			agsafeset(s, label, srcstr, empty);
 		}
 
