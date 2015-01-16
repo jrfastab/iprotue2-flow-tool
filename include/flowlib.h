@@ -64,6 +64,7 @@ void flow_push_headers(struct net_flow_hdr **h);
 void flow_push_actions(struct net_flow_action **a);
 void flow_push_tables(struct net_flow_tbl *t);
 void flow_push_header_fields(struct net_flow_hdr **h);
+void flow_push_graph_nodes(struct net_flow_hdr_node **n);
 
 void flow_pop_tables(struct net_flow_tbl *t);
 
