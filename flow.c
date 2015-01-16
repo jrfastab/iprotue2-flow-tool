@@ -1141,7 +1141,7 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	while (argc > 0) {
 		if (strcmp(*argv, "table") == 0) {
 			NEXT_ARG();
-			table = argv;
+			table = *argv;
 		} else if (strcmp(*argv, "min") == 0) {
 			NEXT_ARG();
 			min = atoi(*argv);
