@@ -728,16 +728,12 @@ void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 	}
 }
 
-static void ppg_jump_table(FILE *fp, int print,
-			  struct net_flow_field_ref *jump,
-			  Agraph_t *g, Agnode_t *n)
+static void ppg_jump_table(struct net_flow_field_ref *jump,
+			   Agraph_t *g, Agnode_t *n)
 {
-	Agedge_t *e;
-
 	//pp_field_ref(fp, print, &jump->field, 0, false);
-	if (jump->next_node > 0) {
-		e = agedge(g, n, graphviz_table_nodes[jump->next_node], 0, 1);
-	}
+	if (jump->next_node > 0)
+		agedge(g, n, graphviz_table_nodes[jump->next_node], 0, 1);
 }
 
 void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
@@ -768,13 +764,13 @@ void ppg_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 	qsort(nodes, i, sizeof(*nodes), flow_compar_graph_nodes);
 	for (i = 0; nodes[i].uid; i++) {
 		for (j = 0; nodes[i].jump[j].next_node; ++j)
-			ppg_jump_table(fp, print, &nodes[i].jump[j], s,
+			ppg_jump_table(&nodes[i].jump[j], s,
 				       graphviz_table_nodes[nodes[i].uid]);
 	}
 	agwrite(g, fp);
 }
 
-void ppg_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes)
+void ppg_header_graph(FILE *fp, struct net_flow_hdr_node *nodes)
 {
 	Agraph_t *g = agopen("g", Agdirected, 0);
 	Agedge_t *e;
@@ -1282,12 +1278,12 @@ int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flo
 	return 0;
 }
 
-int flow_get_flow_errors(FILE *fp, int print, struct nlattr *nla)
+int FLOW_GET_flow_errors(struct nlattr *nla)
 {
 	return nla_get_u32(nla);
 }
 
-int flow_get_table_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_hdr *hdr)
+int flow_get_table_field(FILE *UNUSED(fp), int UNUSED(print), struct nlattr *nl, struct net_flow_hdr *hdr)
 {
 	struct nlattr *i;
 	struct nlattr *field[NET_FLOW_FIELD_ATTR_MAX+1];
@@ -1498,7 +1494,7 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 		graph_nodes[nodes[j].uid] = &nodes[j];
 	}	
 	if (print == PRINT_GRAPHVIZ)
-		ppg_header_graph(stdout, print, nodes);
+		ppg_header_graph(stdout, nodes);
 	else if (print)
 		pp_header_graph(stdout, print, nodes);
 	if (ref)

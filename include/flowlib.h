@@ -25,6 +25,14 @@
 
 #define PRINT_GRAPHVIZ 2
 
+#ifdef __GNUC__
+#define	UNUSED(x)	UNUSED_ ## x __attribute__((__unused__))
+#define UNUSED_FUNC(x) __attribute__((__unused__)) UNUSED_ ## x
+#else
+#define UNUSED(x)	UNUSED_ ## x
+#define UNUSED_FUNC(x)	UNUSED_ ## x
+#endif /* __GNUC__ */
+
 int flow_get_field(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref *ref);
 int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref **ref);
 int flow_get_action(FILE *fp, int p, struct nlattr *nl, struct net_flow_action *a);
