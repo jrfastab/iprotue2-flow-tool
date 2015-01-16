@@ -558,7 +558,7 @@ static int flow_cmd_table(struct nlmsghdr *nlh)
 	else
 		flow_pop_tables(tables);
 	return nl_send_auto(nsd, nlbuf);
-};
+}
 
 static int(*type_cb[NET_FLOW_CMD_MAX+1])(struct nlmsghdr *nlh) = {
 	flow_cmd_get_tables,
