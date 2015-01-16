@@ -581,7 +581,7 @@ static int(*type_cb[NET_FLOW_CMD_MAX+1])(struct nlmsghdr *nlh) = {
 	flow_cmd_table,
 };
 
-int rx_process(struct nlmsghdr *nlh)
+static int rx_process(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	int type;
@@ -596,7 +596,7 @@ int rx_process(struct nlmsghdr *nlh)
 	return type_cb[type](nlh);
 }
 
-void flowd_usage(void)
+static void flowd_usage(void)
 {
 	fprintf(stdout, "flowd [-f family_id] [-h]\n");
 }

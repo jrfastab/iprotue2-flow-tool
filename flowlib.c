@@ -76,6 +76,15 @@ struct net_flow_field *header_fields[MAX_HDRS][MAX_FIELDS];
 struct net_flow_action *actions[MAX_ACTIONS];
 struct net_flow_hdr_node *graph_nodes[MAX_NODES];
 
+char *graph_names(unsigned int uid);
+char *table_names(unsigned int uid);
+void pp_fields(FILE *fp, int print, struct net_flow_field_ref *ref);
+void pp_action(FILE *fp, int print, struct net_flow_action *act);
+void pp_actions(FILE *fp, int print, struct net_flow_action *actions);
+void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes);
+void ppg_header_graph(FILE *fp, struct net_flow_hdr_node *nodes);
+void pp_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes);
+
 char *graph_names(unsigned int uid)
 {
 	return graph_nodes[uid] ? graph_nodes[uid]->name : none;
@@ -289,14 +298,6 @@ void flow_push_graph_nodes(struct net_flow_hdr_node **n)
 
 	for (i = 0; n[i]->uid; i++)
 		graph_nodes[n[i]->uid] = n[i];
-}
-
-/* Work with graphviz dot graphs */
-static GVC_t *gvc;
-
-void flow_init_graph()
-{
-	gvc = gvContext();
 }
 
 /* ll_addr_n2a is a iproute 2 library call hard coded here for now */

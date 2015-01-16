@@ -69,6 +69,26 @@ struct ack_list ack_list_head = {NULL};
 
 int seq = 0;
 
+struct flow_msg *alloc_flow_msg(uint8_t type, uint32_t pid, int flags, int size, int family);
+struct flow_msg *wrap_netlink_msg(struct nlmsghdr *buf);
+int free_flow_msg(struct flow_msg *msg);
+struct flow_msg *recv_flow_msg(int *err);
+void process_rx_message(int verbose);
+
+int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type, struct net_flow_field_ref *match);
+int get_action_arg(int argc, char **argv, bool need_args, struct net_flow_action *action);
+int flow_destroy_tbl_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv);
+int flow_create_tbl_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv);
+int flow_del_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv);
+int flow_set_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv);
+int flow_get_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv);
+int flow_send_recv(int verbose, uint32_t pid, int family, uint32_t ifindex, uint8_t cmd);
+
+void flow_usage(void);
+void del_flow_usage(void);
+void set_flow_usage(void);
+void get_flow_usage(void);
+
 static void pfprintf(FILE *fp, bool p, const char *format, ...)
 {
 	va_list args;
@@ -105,17 +125,6 @@ struct flow_msg *alloc_flow_msg(uint8_t type, uint32_t pid, int flags, int size,
 		nlmsg_set_dst(nl_msg, &nladdr);
 	}
 	return msg;
-}
-
-void set_ack_cb(struct flow_msg *msg,
-		void (*cb)(struct flow_msg *, struct flow_msg *, int))
-{
-	if (msg->ack_cb)
-		return;
-
-	msg->ack_cb = cb;
-	msg->refcnt++;
-	LIST_INSERT_HEAD(&ack_list_head, msg, ack_list_element);
 }
 
 struct flow_msg *wrap_netlink_msg(struct nlmsghdr *buf)
@@ -517,18 +526,18 @@ void process_rx_message(int verbose)
 	return;
 }
 
-void flow_usage()
+void flow_usage(void)
 {
 	fprintf(stdout, "flow [-p pid] [-f family] [-i dev]\n");
 	fprintf(stdout, "           [get_tables | get_headers | get_actions | get_flows <table> | get_graph | set_flow | del_flow | create | destroy]\n");
 }
 
-void set_flow_usage()
+void set_flow_usage(void)
 {
 	printf("flow dev set_flow prio <num> handle <num> table <id>  match <name> action <name arguments>\n");
 }
 
-void get_flow_usage()
+void get_flow_usage(void)
 {
 	printf("get_flows table <num> min <id> max <id>\n");
 }
@@ -815,20 +824,13 @@ done:
 #define MAX_MATCHES	10
 #define MAX_ACTIONS	10
 
-static void set_table_usage()
-{
-	fprintf(stdout, "\nflow dev create source <id> name <name> [id <id>] size <size> [match ...] [action ...]\n");
-	fprintf(stdout, "     match : [header_instance].[field] [mask_type]\n");
-	fprintf(stdout, "     mask_type : lpm|exact\n");
-	fprintf(stdout, "     action : action_name\n");
-}
 
-static void del_table_usage()
+#define NET_FLOW_MAXNAME 120
+
+static void del_table_usage(void)
 {
 	fprintf(stdout, "flow dev destroy source <id> [name <name> | id <id>]\n");
 }
-
-#define NET_FLOW_MAXNAME 120
 
 int flow_destroy_tbl_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv)
 {
@@ -909,6 +911,14 @@ int flow_destroy_tbl_send(int verbose, uint32_t pid, int family, unsigned int if
 
 	return 0;
 
+}
+
+static void set_table_usage(void)
+{
+	fprintf(stdout, "\nflow dev create source <id> name <name> [id <id>] size <size> [match ...] [action ...]\n");
+	fprintf(stdout, "     match : [header_instance].[field] [mask_type]\n");
+	fprintf(stdout, "     mask_type : lpm|exact\n");
+	fprintf(stdout, "     action : action_name\n");
 }
 
 int flow_create_tbl_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int argc, char **argv)
@@ -1051,7 +1061,7 @@ int flow_create_tbl_send(int verbose, uint32_t pid, int family, uint32_t ifindex
 	return 0;
 }
 
-void del_flow_usage()
+void del_flow_usage(void)
 {
 	printf("flow dev del_flow handle <num> table <id>\n");
 }
