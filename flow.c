@@ -59,7 +59,7 @@ struct flow_msg {
 	struct nl_msg *nlbuf;
 	int refcnt;
 	LIST_ENTRY(flow_msg) ack_list_element;
-	unsigned int seq;
+	uint32_t seq;
 	void (*ack_cb)(struct flow_msg *amsg, struct flow_msg *msg, int err);
 };
 
@@ -80,7 +80,7 @@ static void pfprintf(FILE *fp, bool p, const char *format, ...)
 	va_end(args);
 }
 
-struct flow_msg *alloc_flow_msg(uint32_t type, uint32_t pid, uint16_t flags, size_t size, int family)
+struct flow_msg *alloc_flow_msg(uint8_t type, uint32_t pid, int flags, int size, int family)
 {
 	struct flow_msg *msg;
 	static uint32_t seq = 0;
@@ -90,7 +90,7 @@ struct flow_msg *alloc_flow_msg(uint32_t type, uint32_t pid, uint16_t flags, siz
 		return NULL;
 
 	msg->nlbuf = nlmsg_alloc();
-	msg->msg = genlmsg_put(msg->nlbuf, 0, seq, family, size, flags, type, 1);
+	msg->msg = genlmsg_put(msg->nlbuf, 0, seq, family, (int)size, flags, type, 1);
 	msg->ack_cb = NULL;
 	msg->seq = seq++;
 
@@ -166,7 +166,7 @@ struct nl_cache *link_cache;
 
 static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb[])
 {
-	int ifindex, type;
+	unsigned int type, ifindex;
 	char iface[IFNAMSIZ];
 
 	if (!tb[NET_FLOW_IDENTIFIER_TYPE]) {
@@ -193,8 +193,8 @@ static int flow_table_cmd_to_type(FILE *fp, bool p, int valid, struct nlattr *tb
 	switch (type) {
 	case NET_FLOW_IDENTIFIER_IFINDEX:
 		ifindex = nla_get_u32(tb[NET_FLOW_IDENTIFIER]);
-		rtnl_link_i2name(link_cache, ifindex, iface, IFNAMSIZ);
-		pfprintf(fp, p, "%s (%i):\n", iface, ifindex);
+		rtnl_link_i2name(link_cache, (int)ifindex, iface, IFNAMSIZ);
+		pfprintf(fp, p, "%s (%u):\n", iface, ifindex);
 		break;
 	default:
 		fprintf(stderr, "Warning unknown interface identifier type %i\n", type);
@@ -541,7 +541,7 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	char *strings, *instance, *s_fld, *has_dots;
 	struct net_flow_hdr_node *hdr_node;
 	struct net_flow_field *field;
-	int node, advance = 0, err = 0;
+	int advance = 0, err = 0;
 
 	NEXT_ARG();
 	strings = *argv;
@@ -562,10 +562,9 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	if (!s_fld)
 		return -EINVAL;
 
-	node = find_header_node(instance);
-	if (node < 0)
+	match->instance = find_header_node(instance);
+	if (!match->instance)
 		return -EINVAL;
-	match->instance = node;
 
 	hdr_node = get_graph_node(match->instance);	
 	if (!hdr_node) /* with an abundance of caution */
@@ -583,10 +582,9 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		return -EINVAL;
 
 	match->header = hdr_node->hdrs[0];
-	node = find_field(s_fld, match->header);
-	if (node < 0)
+	match->field = find_field(s_fld, match->header);
+	if (!match->field)
 		return -EINVAL;
-	match->field = node;
 
 	field = get_fields(match->header, match->field);
 	if (!field)
@@ -713,7 +711,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 		   struct net_flow_action *action)
 {
 	struct net_flow_action *a;
-	int i, reqs_args = 0;
+	unsigned int i, reqs_args = 0;
 	int err, advance = 0;
 	char *has_dots;
 
@@ -721,7 +719,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 	advance++;
 
 	i = find_action(*argv);
-	if (i < 0) {
+	if (!i) {
 		fprintf(stderr, "Warning unknown action\n");
 		return -EINVAL;
 	}
@@ -832,9 +830,9 @@ static void del_table_usage()
 
 #define NET_FLOW_MAXNAME 120
 
-int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_destroy_tbl_send(int verbose, uint32_t pid, int family, unsigned int ifindex, int argc, char **argv)
 {
-	int cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE;
 	struct net_flow_tbl table = {.name = "", .uid = 0};
 	struct nlattr *nest, *nest1;
 	struct flow_msg *msg;
@@ -847,10 +845,12 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 			table.uid = get_table_id(table.name);	
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
-			table.source = atoi(*argv);
+			/* todo: fix ugly type cast */
+			table.source = (__u32)atoi(*argv);
 		} else if (strcmp(*argv, "id") == 0) {
 			NEXT_ARG();
-			table.uid = atoi(*argv);	
+			/* todo: fix ugly type cast */
+			table.uid = (__u32) atoi(*argv);	
 		}
 		argc--; argv++;
 	}
@@ -911,7 +911,7 @@ int flow_destroy_tbl_send(int verbose, int pid, int family, int ifindex, int arg
 
 }
 
-int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_create_tbl_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int argc, char **argv)
 {
 	struct nlattr *nest, *nest1;
 	struct net_flow_field_ref matches[MAX_MATCHES];
@@ -919,7 +919,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
 	int err = 0, advance = 0;
-	int cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE;
 	struct net_flow_tbl table;
 
 	memset(&table, 0, sizeof(table));
@@ -952,13 +952,19 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 			table.name = strndup(*argv, NET_FLOW_MAXNAME);
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
-			table.source = atoi(*argv);
+			err = sscanf(*argv, "%u", &table.source);
+			if (err < 0)
+				return -EINVAL;
 		} else if (strcmp(*argv, "id") == 0) {
 			NEXT_ARG();
-			table.uid = atoi(*argv);	
+			err = sscanf(*argv, "%u", &table.uid);
+			if (err < 0)
+				return -EINVAL;
 		} else if (strcmp(*argv, "size") == 0) {
 			NEXT_ARG();
-			table.size = atoi(*argv);
+			err = sscanf(*argv, "%u", &table.source);
+			if (err < 0)
+				return -EINVAL;
 		}
 		argc--; argv++;
 	}
@@ -1050,23 +1056,39 @@ void del_flow_usage()
 	printf("flow dev del_flow handle <num> table <id>\n");
 }
 
-int flow_del_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_del_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int argc, char **argv)
 {
 	struct net_flow_flow flow = {0};
 	struct flow_msg *msg;
 	struct nlattr *flows;
-	int cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS;
+	int err;
 
 	while (argc > 0) {
 		if (strcmp(*argv, "prio") == 0) {
 			NEXT_ARG();
-			flow.priority = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.priority);
+			if (err < 0) {
+				del_flow_usage();
+				fprintf(stderr, "prio argument invalid\n");
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "handle") == 0) {
 			NEXT_ARG();
-			flow.uid = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.uid);
+			if (err < 0) {
+				del_flow_usage();
+				fprintf(stderr, "handle argument invalid\n");
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "table") == 0) {
 			NEXT_ARG();
-			flow.table_id = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.table_id);
+			if (err < 0) {
+				del_flow_usage();
+				fprintf(stderr, "table argument invalid\n");
+				exit(-1);
+			}
 		}
 		argc--; argv++;
 	}
@@ -1111,14 +1133,14 @@ int flow_del_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	return 0;
 }
 
-int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_get_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int argc, char **argv)
 {
-	int cmd = NET_FLOW_TABLE_CMD_GET_FLOWS;
-	char *table = NULL, *endptr;
-	int min = -1, max = -1;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_GET_FLOWS;
+	unsigned int tableid, min = 0, max = 0;
+	char *table = NULL;
 	struct flow_msg *msg;
 	struct nlattr *flows;
-	int err, tableid;
+	int err;
 
 	opterr = 0;
 	while (argc > 0) {
@@ -1127,10 +1149,20 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 			table = *argv;
 		} else if (strcmp(*argv, "min") == 0) {
 			NEXT_ARG();
-			min = atoi(*argv);
+			err = sscanf(*argv, "%u", &min);
+			if (err < 0) {
+				fprintf(stderr, "invalid min parameter\n");
+				get_flow_usage();
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "max") == 0) {
 			NEXT_ARG();
-			max = atoi(*argv);
+			err = sscanf(*argv, "%u", &max);
+			if (err < 0) {
+				fprintf(stderr, "invalid max parameter\n");
+				get_flow_usage();
+				exit(-1);
+			}
 		}
 		argc--; argv++;
 	}
@@ -1141,10 +1173,10 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 		exit(-1);
 	}
 
-	tableid = strtol(table, &endptr, 0);
-	if (tableid <= 0) {
+	err = sscanf(table, "%u", &tableid);
+	if (err < 0) {
 		tableid = find_table(table);	
-		if (tableid < 0) {
+		if (!tableid) {
 			printf("Missing \"table\" argument.\n");
 			get_flow_usage();
 			exit(-1);
@@ -1177,13 +1209,13 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	if (err)
 		return -EMSGSIZE;
 
-	if (min >= 0) {
+	if (min > 0) {
 		err = nla_put_u32(msg->nlbuf, NET_FLOW_TABLE_FLOWS_MINPRIO, min);
 		if (err)
 			return err;
 	}
 
-	if (max >= 0) {
+	if (max > 0) {
 		err = nla_put_u32(msg->nlbuf, NET_FLOW_TABLE_FLOWS_MAXPRIO, max);
 		if (err)
 			return err;
@@ -1202,14 +1234,14 @@ int flow_get_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	return 0;
 }
 
-int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char **argv)
+int flow_set_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int argc, char **argv)
 {
 	struct net_flow_field_ref matches[MAX_MATCHES];
 	struct net_flow_action acts[MAX_ACTIONS];
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
 	int advance = 0;
-	int cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_SET_FLOWS;
 	int err = 0;
 	struct net_flow_flow flow;
 	struct nlattr *flows;
@@ -1238,13 +1270,29 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 				NEXT_ARG();
 		} else if (strcmp(*argv, "prio") == 0) {
 			NEXT_ARG();
-			flow.priority = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.priority);
+			if (err < 0) {
+				printf("Invalid prio argument\n");
+				set_flow_usage();
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "handle") == 0) {
 			NEXT_ARG();
-			flow.uid = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.uid);
+			if (err < 0) {
+				printf("Invalid handle argument\n");
+				set_flow_usage();
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "table") == 0) {
 			NEXT_ARG();
-			flow.table_id = atoi(*argv);
+			err = sscanf(*argv, "%u", &flow.table_id);
+			if (err < 0) {
+				printf("Invalid table_id argument\n");
+				set_flow_usage();
+				exit(-1);
+			}
+
 		}
 		argc--; argv++;
 	}
@@ -1301,7 +1349,7 @@ int flow_set_send(int verbose, int pid, int family, int ifindex, int argc, char 
 	return 0;
 }
 
-int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd)
+int flow_send_recv(int verbose, uint32_t pid, int family, uint32_t ifindex, uint8_t cmd)
 {
 	struct flow_msg *msg;
 
@@ -1326,8 +1374,10 @@ int flow_send_recv(int verbose, int pid, int family, int ifindex, int cmd)
 
 int main(int argc, char **argv)
 {
-	int cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
-	int family = -1, err, ifindex = 0, pid = 0;
+	uint8_t cmd = NET_FLOW_TABLE_CMD_GET_TABLES;
+	int family = -1, err;
+	unsigned int ifindex = 0;
+	uint32_t pid = 0;
 	int verbose = 1;
 	bool resolve_names = true;
 	struct nl_sock *fd;
@@ -1346,7 +1396,11 @@ int main(int argc, char **argv)
 			flow_usage();
 			exit(-1);
 		case 'p':
-			pid = atoi(optarg);
+			err = sscanf(*argv, "%u", &pid);
+			if (err < 0) {
+				flow_usage();
+				exit(-1);
+			}
 			args+=2;
 			break;
 		case 'f':
@@ -1414,7 +1468,7 @@ int main(int argc, char **argv)
 	}
 
 	if (ifname) {
-		if (!(ifindex = rtnl_link_name2i(link_cache, ifname))) {
+		if (!(ifindex = (unsigned int)rtnl_link_name2i(link_cache, ifname))) {
 			fprintf(stderr, "Unable to lookup %s\n", ifname);
 			flow_usage();
 			return -1;

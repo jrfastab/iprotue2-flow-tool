@@ -76,47 +76,47 @@ struct net_flow_field *header_fields[MAX_HDRS][MAX_FIELDS];
 struct net_flow_action *actions[MAX_ACTIONS];
 struct net_flow_hdr_node *graph_nodes[MAX_NODES];
 
-char *graph_names(int uid)
+char *graph_names(unsigned int uid)
 {
 	return graph_nodes[uid] ? graph_nodes[uid]->name : none;
 }
 
-struct net_flow_hdr_node *get_graph_node(int uid)
+struct net_flow_hdr_node *get_graph_node(unsigned int uid)
 {
 	return graph_nodes[uid];
 }
 
-char *headers_names(int uid)
+char *headers_names(unsigned int uid)
 {
 	return headers[uid] ? headers[uid]->name : none;
 }
 
-struct net_flow_hdr *get_headers(int uid)
+struct net_flow_hdr *get_headers(unsigned int uid)
 {
 	return headers[uid];
 }
 
-char *fields_names(int hid, int fid)
+char *fields_names(unsigned int hid, unsigned int fid)
 {
 	return header_fields[hid][fid] ? header_fields[hid][fid]->name : none;
 }
 
-struct net_flow_field *get_fields(int huid, int uid)
+struct net_flow_field *get_fields(unsigned int huid, unsigned int uid)
 {
 	return header_fields[huid][uid];
 }
 
-char *table_names(int uid)
+char *table_names(unsigned int uid)
 {
 	return tables[uid] ? tables[uid]->name : none;
 }
 
-struct net_flow_tbl *get_tables(int uid)
+struct net_flow_tbl *get_tables(unsigned int uid)
 {
 	return tables[uid];
 }
 
-int get_table_id(char *name)
+unsigned int get_table_id(char *name)
 {
 	int i;
 
@@ -124,7 +124,7 @@ int get_table_id(char *name)
 		if (tables[i]) {
 			tables[i]->name = strdup(name);
 			if (!tables[i]->name)
-				return -ENOMEM;
+				return 0;
 			return tables[i]->uid;
 		}
 	}
@@ -132,9 +132,9 @@ int get_table_id(char *name)
 	return 0;
 }
 
-int gen_table_id(void)
+unsigned int gen_table_id(void)
 {
-	int i,j;
+	unsigned int i,j;
 
 	for (i = 1; i < MAX_TABLES; i++) {
 		for (j = 1; j < MAX_TABLES; j++) {
@@ -152,55 +152,55 @@ int gen_table_id(void)
 	return i;
 }
 
-char *action_names(int uid)
+char *action_names(unsigned int uid)
 {
 	return actions[uid]->name;
 }
 
-struct net_flow_action *get_actions(int uid)
+struct net_flow_action *get_actions(unsigned int uid)
 {
 	return actions[uid];
 }
 
-int find_table(char *name)
+unsigned find_table(char *name)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < MAX_TABLES; i++) {
 		if (tables[i] && strcmp(table_names(i), name) == 0)
 			return tables[i]->uid;
 	}
 
-	return -EINVAL;
+	return 0;
 }
 
-int find_action(char *name)
+unsigned int find_action(char *name)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < MAX_ACTIONS; i++) {
 		if (actions[i] && strcmp(action_names(i), name) == 0) {
 			return actions[i]->uid;
 		}
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int find_header_node(char *name)
+unsigned int find_header_node(char *name)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < MAX_NODES; i++) {
 		if (graph_nodes[i] && strcmp(graph_names(i), name) == 0)
 			return graph_nodes[i]->uid;
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int find_field(char *field, int hdr)
+unsigned int find_field(char *field, unsigned int hdr)
 {
 	struct net_flow_hdr *header;
-	int i;
+	unsigned int i;
 
 	header = get_headers(hdr);
 
@@ -209,14 +209,14 @@ int find_field(char *field, int hdr)
 		    strcmp(header->fields[i].name, field) == 0)
 			return header->fields[i].uid;
 	}
-	return -EINVAL;
+	return 0;
 }
 
-int find_match(char *header, char *field, int *hi, int *li)
+int find_match(char *header, char *field, unsigned int *hi, unsigned int *li)
 {
-	int i;
+	unsigned int i;
 
-	*hi = *li = -1;
+	*hi = *li = 0;
 
 	for (i = 0; i < MAX_HDRS; i++) {
 		if (headers[i] && strcmp(headers_names(i), header) == 0) {
@@ -225,14 +225,14 @@ int find_match(char *header, char *field, int *hi, int *li)
 		}
 	}
 
-	for (i = 0; *hi >= 0 && i < MAX_FIELDS; i++) {
+	for (i = 0; *hi > 0 && i < MAX_FIELDS; i++) {
 		if (header_fields[*hi][i] && strcmp(fields_names(*hi, i), field) == 0) {
 			*li = header_fields[*hi][i]->uid;
 			break;	
 		}
 	}
 
-	if (*hi < 0 || *li < 0)
+	if (*hi == 0 || *li == 0)
 		return -EINVAL;
 
 	return 0;
@@ -240,7 +240,7 @@ int find_match(char *header, char *field, int *hi, int *li)
 
 void flow_push_headers(struct net_flow_hdr **h)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; h[i]->uid; i++)
 		headers[h[i]->uid] = h[i];	
@@ -248,7 +248,7 @@ void flow_push_headers(struct net_flow_hdr **h)
 
 void flow_push_actions(struct net_flow_action **a)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; a[i]->uid; i++)
 		actions[a[i]->uid] = a[i];	
@@ -256,7 +256,7 @@ void flow_push_actions(struct net_flow_action **a)
 
 void flow_push_tables(struct net_flow_tbl *t)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; t[i].uid; i++)
 		tables[t[i].uid] = &t[i];	
@@ -264,7 +264,7 @@ void flow_push_tables(struct net_flow_tbl *t)
 
 void flow_pop_tables(struct net_flow_tbl *t)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; t[i].uid; i++)
 		free(tables[t[i].uid]);
@@ -276,7 +276,7 @@ void flow_push_header_fields(struct net_flow_hdr **h)
 
 	for (i = 0; h[i]->uid; i++) {
 		struct net_flow_field *f = h[i]->fields;
-		int uid = h[i]->uid;
+		__u32 uid = h[i]->uid;
 
 		for (j = 0; j < h[i]->field_sz; j++)
 			header_fields[uid][f[j].uid] = &f[j];
@@ -285,7 +285,7 @@ void flow_push_header_fields(struct net_flow_hdr **h)
 
 void flow_push_graph_nodes(struct net_flow_hdr_node **n)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; n[i]->uid; i++)
 		graph_nodes[n[i]->uid] = n[i];
@@ -300,7 +300,7 @@ void flow_init_graph()
 }
 
 /* ll_addr_n2a is a iproute 2 library call hard coded here for now */
-const char *ll_addr_n2a(unsigned char *addr, int alen, char *buf, int blen)
+const char *ll_addr_n2a(unsigned char *addr, int alen, char *buf, size_t blen)
 {
 	int i;
 	int l = 0;
@@ -438,10 +438,10 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 {
 	char b1[64] = ""; /* arbitrary string field for mac */
 	char fieldstr[1024];
-	int fieldlen = 1024;//sizeof(*fieldstr);
-	int inst = ref->instance;
-	int hi = ref->header;
-	int fi = ref->field;
+	size_t fieldlen = 1024;//sizeof(*fieldstr);
+	unsigned int inst = ref->instance;
+	unsigned int hi = ref->header;
+	unsigned int fi = ref->field;
 
 	if (!hi)
 		return;
@@ -713,8 +713,8 @@ static void pp_tbl_node_flags(FILE *fp, int print, __u32 flags)
  
 void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 {
-	unsigned int src = -1;
-	int i, j;
+	unsigned int src = 0;
+	unsigned int i, j;
 
 	if (!print)
 		return;
@@ -751,7 +751,7 @@ void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes)
 	Agraph_t *s = NULL, *g = agopen(agopen_g, Agdirected, 0);
 	char srcstr[80];
 	__u32 src = 0;
-	int i, j;
+	unsigned int i, j;
 
 	agsafeset(g, rankdir, LR, empty);
 	for (i = 0; nodes[i].uid; i++) {
@@ -956,14 +956,17 @@ static int flow_get_action_arg(struct net_flow_action_arg *arg, struct nlattr *n
 	if (tb[NET_FLOW_ACTION_ARG_NAME]) {
 		int max = nla_len(tb[NET_FLOW_ACTION_ARG_NAME]);
 
+		if (max < 0)
+			return -EINVAL;
+
 		if (max > NET_FLOW_MAX_NAME)
 			max = NET_FLOW_MAX_NAME;
 
-		arg->name = calloc(1, max);
+		arg->name = calloc(1, (unsigned int)max);
 		if (!arg->name)
 			return -ENOMEM;
 
-		nla_strlcpy(arg->name, tb[NET_FLOW_ACTION_ARG_NAME], max);
+		nla_strlcpy(arg->name, tb[NET_FLOW_ACTION_ARG_NAME], (unsigned int)max);
 	} else {
 		arg->name = "none";
 	}
@@ -1007,7 +1010,8 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 	struct nlattr *signature, *l;
 	struct nlattr *action[NET_FLOW_ACTION_ATTR_MAX+1];
 	struct net_flow_action *act;
-	int err, uid, count = 0;
+	int err;
+	unsigned int uid, count = 0;
 	char *name;
 
 	err = nla_parse_nested(action, NET_FLOW_ACTION_ATTR_MAX, nl, net_flow_action_policy);
@@ -1016,10 +1020,10 @@ int flow_get_action(FILE *fp, int print, struct nlattr *nl, struct net_flow_acti
 		return -EINVAL;
 	}
 
-	uid = action[NET_FLOW_ACTION_ATTR_UID] ? (int) nla_get_u32(action[NET_FLOW_ACTION_ATTR_UID]) : -1;
-	if (uid < 0)
+	if (!action[NET_FLOW_ACTION_ATTR_UID])
 		return 0;
 
+	uid = nla_get_u32(action[NET_FLOW_ACTION_ATTR_UID]);
 	act = actions[uid]; /* TBD review error paths */
 	if (!act) {
 		act = calloc(1, sizeof(struct net_flow_action));
@@ -1081,7 +1085,8 @@ int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_fie
 {
 	struct net_flow_field_ref *r;
 	struct nlattr *i;
-	int rem, cnt;
+	int rem;
+	unsigned int cnt;
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl), cnt = 0; nla_ok(i, rem); i = nla_next(i, &rem))
@@ -1103,7 +1108,8 @@ int flow_get_matches(FILE *fp, int print, struct nlattr *nl, struct net_flow_fie
 int flow_get_actions(FILE *fp, int print, struct nlattr *nl, struct net_flow_action **actions)
 {
 	struct net_flow_action *acts;
-	int rem, j = 0;
+	unsigned int j = 0;
+	int rem;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -1133,7 +1139,8 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 	struct nlattr *table[NET_FLOW_TABLE_ATTR_MAX+1];
 	struct net_flow_field_ref *matches = NULL;
 	__u32 uid, src, apply, size;
-	int cnt, rem, err = 0;
+	int rem, err = 0;
+	unsigned int cnt;
 	__u32 *actions = NULL;
 	struct nlattr *i;
 	char *name;
@@ -1195,7 +1202,8 @@ int flow_get_tables(FILE *fp, int print, struct nlattr *nl,
 {
 	struct net_flow_tbl *tables;
 	struct nlattr *i;
-	int err, rem, cnt = 0;
+	int err, rem;
+	unsigned cnt = 0;
 
 	rem = nla_len(nl);
 	for (cnt = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
@@ -1230,7 +1238,8 @@ int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flo
 	struct net_flow_action *actions = NULL;
 	struct net_flow_flow  *f;
 	struct nlattr *i;
-	int err, rem, count = 0;;
+	int err, rem;
+	unsigned int count = 0;;
 
 	rem = nla_len(attr);
 	for (i = nla_data(attr);  nla_ok(i, rem); i = nla_next(i, &rem)) 
@@ -1289,16 +1298,17 @@ int flow_get_flows(FILE *fp, int print, struct nlattr *attr, struct net_flow_flo
 	return 0;
 }
 
-int FLOW_GET_flow_errors(struct nlattr *nla)
+unsigned int flow_get_flow_errors(struct nlattr *nla)
 {
 	return nla_get_u32(nla);
 }
 
 int flow_get_table_field(FILE *UNUSED(fp), int UNUSED(print), struct nlattr *nl, struct net_flow_hdr *hdr)
 {
-	struct nlattr *i;
 	struct nlattr *field[NET_FLOW_FIELD_ATTR_MAX+1];
-	int rem, err, count = 0;
+	unsigned int count = 0;
+	struct nlattr *i;
+	int rem, err;
 
 	/* TBD this couting stuff is a bit clumsy */
 	rem = nla_len(nl);
@@ -1328,14 +1338,15 @@ int flow_get_table_field(FILE *UNUSED(fp), int UNUSED(print), struct nlattr *nl,
 		count++;
 	}
 
-	return count;
+	return 0;
 }
 
 int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_hdr **hdrs)
 {
+	unsigned int count = 0;
 	struct net_flow_hdr *h;
 	struct nlattr *i;
-	int rem, count = 0;
+	int rem;
 
 	rem = nla_len(nl);
 	for (i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
@@ -1395,7 +1406,8 @@ static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct ne
 {
 	struct net_flow_field_ref *jump;
 	struct nlattr *i;
-	int rem, j;
+	int rem;
+	unsigned int j;
 
 	rem = nla_len(nl);
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
@@ -1419,7 +1431,8 @@ static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct ne
 static int flow_get_header_refs(struct nlattr *nl, __u32 **ref)
 {
 	__u32 *headers;
-	int rem, j;
+	int rem;
+	unsigned int j;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -1444,7 +1457,8 @@ static int flow_get_header_refs(struct nlattr *nl, __u32 **ref)
 int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_hdr_node **ref)
 {
 	struct net_flow_hdr_node *nodes;
-	int rem, err, j;
+	int rem, err;
+	unsigned int j;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -1516,7 +1530,8 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 int flow_get_tbl_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_tbl_node **ref)
 {
 	struct net_flow_tbl_node *nodes;
-	int rem, err, j;
+	unsigned int j;
+	int rem, err;
 	struct nlattr *i;
 
 	rem = nla_len(nl);
@@ -1681,7 +1696,7 @@ int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *ref)
 static int flow_put_fields(struct nl_msg *nlbuf, struct net_flow_hdr *ref)
 {
 	struct nlattr *field;
-	int count = ref->field_sz;
+	unsigned int count = ref->field_sz;
 	struct net_flow_field *f;
 
 	for (f = ref->fields; count; count--, f++) {
@@ -1798,7 +1813,7 @@ int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int t
 	return 0;
 }
 
-int flow_put_flow_error(struct nl_msg *nlbuf, int err)
+int flow_put_flow_error(struct nl_msg *nlbuf, __u32 err)
 {
 	return nla_put_u32(nlbuf, NET_FLOW_FLOWS_ERROR, err);
 }

@@ -67,10 +67,10 @@ struct net_flow_tbl my_dyn_table_list[MAX_MOCK_TABLES];
 int family = -1;
 struct nl_sock *nsd;
 
-static struct nl_msg *flow_alloc_msg(struct nlmsghdr *nlh, uint32_t type, uint16_t flags, size_t size)
+static struct nl_msg *flow_alloc_msg(struct nlmsghdr *nlh, uint8_t type, uint16_t flags, int size)
 {
-	int seq = nlh->nlmsg_seq;
-	int pid = nlh->nlmsg_pid;
+	unsigned int seq = nlh->nlmsg_seq;
+	unsigned int pid = nlh->nlmsg_pid;
 	struct nl_msg *nlbuf;
 	struct nl_sock *fd;
 	void *hdr;
@@ -127,8 +127,9 @@ static struct nla_policy flow_get_tables_policy[NET_FLOW_MAX+1] = {
 static int flow_cmd_get_tables(struct nlmsghdr *nlh)
 {
 	struct nlattr *nest, *t, *tb[NET_FLOW_MAX+1];
-	int i, err, ifindex = 0;
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
+	int i, err;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_TABLES, NLM_F_REQUEST|NLM_F_ACK, 0);
 
@@ -161,8 +162,9 @@ static int flow_cmd_get_tables(struct nlmsghdr *nlh)
 static int flow_cmd_get_headers(struct nlmsghdr *nlh)
 {
 	struct nlattr *tb[NET_FLOW_MAX+1];
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
-	int err, ifindex = 0;
+	int err;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_HEADERS, NLM_F_REQUEST|NLM_F_ACK, 0);
 
@@ -186,8 +188,9 @@ static int flow_cmd_get_headers(struct nlmsghdr *nlh)
 static int flow_cmd_get_actions(struct nlmsghdr *nlh)
 {
 	struct nlattr *actions, *tb[NET_FLOW_MAX+1];
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
-	int i, err, ifindex = 0;
+	int i, err;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_ACTIONS, NLM_F_REQUEST|NLM_F_ACK, 0);
 
@@ -216,8 +219,9 @@ static int flow_cmd_get_actions(struct nlmsghdr *nlh)
 static int flow_cmd_get_header_graph(struct nlmsghdr *nlh)
 {
 	struct nlattr *tb[NET_FLOW_MAX+1];
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
-	int err, ifindex = 0;
+	int err;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_HDR_GRAPH, NLM_F_REQUEST|NLM_F_ACK, 0);
 
@@ -237,8 +241,9 @@ static int flow_cmd_get_header_graph(struct nlmsghdr *nlh)
 static int flow_cmd_get_table_graph(struct nlmsghdr *nlh)
 {
 	struct nlattr *tb[NET_FLOW_MAX+1];
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
-	int err, ifindex = 0;
+	int err;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_GET_TABLE_GRAPH, NLM_F_REQUEST|NLM_F_ACK, 0);
 
@@ -264,9 +269,9 @@ static struct nla_policy flow_table_flows_policy[NET_FLOW_TABLE_FLOWS_MAX + 1] =
 
 static int flow_cmd_get_flows(struct nlmsghdr *nlh)
 {
+	unsigned int table = 0, min = 0, max = 0, ifindex = 0;
 	struct nlattr *tb[NET_FLOW_MAX+1];
-	unsigned int table = 0, min = 0, max = 0;
-	int err, ifindex = 0;
+	int err;
 	struct nl_msg *nlbuf;
 #ifdef FLOWD_MOCK_SUPPORT
 	struct net_flow_flow *flows;
@@ -324,14 +329,14 @@ static int flow_cmd_get_flows(struct nlmsghdr *nlh)
 }
 
 static int flow_cmd_resolve_flows(struct net_flow_flow *flow, int cmd,
-				  int error_method,
+				  unsigned int error_method,
 				  struct nl_msg *nlbuf)
 {
 	int i, err = 0;
 
 	for (i = 0; flow[i].uid; i++) {
+		unsigned int table = flow[i].table_id;
 		struct net_flow_flow *flows;
-		int table = flow[i].table_id;
 
 		if (!flowd_mock_tables[table]) {
 			fprintf(stderr, "Warning, invalid flow table %i\n", table);
@@ -396,12 +401,13 @@ done:
 
 static int flow_cmd_flows(struct nlmsghdr *nlh)
 {
-	int error_method = NET_FLOW_FLOWS_ERROR_ABORT;
+	unsigned int error_method = NET_FLOW_FLOWS_ERROR_ABORT;
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	struct net_flow_flow *flow;
-	int err, ifindex = 0;
+	unsigned int ifindex = 0;
 	struct nl_msg *nlbuf;
+	int err;
 
 	if (glh->cmd > NET_FLOW_CMD_MAX)
 		return -EOPNOTSUPP;
@@ -463,7 +469,8 @@ static int flow_cmd_table(struct nlmsghdr *nlh)
 	struct genlmsghdr *glh = nlmsg_data(nlh);
 	struct nlattr *tb[NET_FLOW_MAX+1];
 	struct net_flow_tbl *tables;
-	int i, err, ifindex = 0;
+	unsigned int ifindex = 0;
+	int i, err;
 	struct nl_msg *nlbuf;
 
 	nlbuf = flow_alloc_msg(nlh, NET_FLOW_TABLE_CMD_CREATE_TABLE,
@@ -597,7 +604,7 @@ void flowd_usage(void)
 int main(int argc, char **argv)
 {
 	struct sockaddr_nl dest_addr;
-	int rcv_size = 2048;
+	size_t rcv_size = 2048;
 	unsigned char *buf;
 	int rc, err, opt;
 #ifdef FLOWD_MOCK_SUPPORT
@@ -634,7 +641,7 @@ int main(int argc, char **argv)
 	flow_push_graph_nodes(my_hdr_nodes);
 
 	nsd = nl_socket_alloc();
-	nl_socket_set_local_port(nsd, getpid());
+	nl_socket_set_local_port(nsd, (uint32_t)getpid());
 	nl_connect(nsd, NETLINK_GENERIC);
 
 	while (1) {

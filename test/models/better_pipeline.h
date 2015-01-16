@@ -125,7 +125,7 @@ struct net_flow_field ipv4_fields[14] = {
 	  .bitwidth = 32,},
 	{ .name = "options",
 	  .uid = 14,
-	  .bitwidth = -1,},
+	  .bitwidth = 0,},
 	/* TBD options */
 };
 

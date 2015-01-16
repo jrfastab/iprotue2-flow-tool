@@ -1,6 +1,7 @@
 CFLAGS=`pkg-config libnl-3.0 libnl-route-3.0 libnl-cli-3.0 libgvc --cflags`  \
 	-Wall -g -O2 -std=c99 -O2 -D_GNU_SOURCE				     \
-	-pedantic -Wextra
+	-pedantic -Wextra -Wformat=2 -Wlogical-op -Wpointer-arith	     \
+	-Wnested-externs -Wbad-function-cast -Wconversion -Wcast-qual -Wcast-align
 
 LDFLAGS=`pkg-config libnl-3.0 libnl-route-3.0 libnl-cli-3.0 libgvc --libs`
 
