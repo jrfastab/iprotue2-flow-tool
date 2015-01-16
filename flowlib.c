@@ -1124,11 +1124,12 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 		   struct net_flow_tbl *t)
 {
 	struct nlattr *table[NET_FLOW_TABLE_ATTR_MAX+1];
+	struct net_flow_field_ref *matches = NULL;
+	__u32 uid, src, apply, size;
+	int cnt, rem, err = 0;
+	__u32 *actions = NULL;
 	struct nlattr *i;
 	char *name;
-	int uid, src, apply, size, cnt, rem, err = 0;
-	struct net_flow_field_ref *matches = NULL;
-	int *actions = NULL;
 
 	err = nla_parse_nested(table, NET_FLOW_TABLE_ATTR_MAX, nl, net_flow_table_policy);
 	if (err) {
@@ -1152,7 +1153,7 @@ int flow_get_table(FILE *fp, int print, struct nlattr *nl,
 		     nla_ok(i, rem); i = nla_next(i, &rem))
 			cnt++;
 
-		actions = calloc(cnt + 1, sizeof (int));
+		actions = calloc(cnt + 1, sizeof (__u32));
 		if (!actions)
 			goto out;
 
@@ -1408,9 +1409,9 @@ static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct ne
 	return 0;
 }
 
-static int flow_get_header_refs(struct nlattr *nl, int **ref)
+static int flow_get_header_refs(struct nlattr *nl, __u32 **ref)
 {
-	int *headers;
+	__u32 *headers;
 	int rem, j;
 	struct nlattr *i;
 
@@ -1858,7 +1859,8 @@ int flow_put_flows(struct nl_msg *nlbuf, struct net_flow_flow *ref)
 int flow_put_table(struct nl_msg *nlbuf, struct net_flow_tbl *ref)
 {
 	struct nlattr *actions;
-	int *aref, err;
+	__u32 *aref;
+	int err;
 
 	if (nla_put_string(nlbuf, NET_FLOW_TABLE_ATTR_NAME, ref->name) ||
 	    nla_put_u32(nlbuf, NET_FLOW_TABLE_ATTR_UID, ref->uid) ||

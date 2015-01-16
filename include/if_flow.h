@@ -30,8 +30,8 @@
  */
 struct net_flow_field {
 	char *name;
-	int uid;
-	int bitwidth;
+	__u32 uid;
+	__u32 bitwidth;
 };
 
 /**
@@ -45,8 +45,8 @@ struct net_flow_field {
  */
 struct net_flow_hdr {
 	char *name;
-	int uid;
-	int field_sz;
+	__u32 uid;
+	__u32 field_sz;
 	struct net_flow_field *fields;
 };
 
@@ -88,7 +88,7 @@ struct net_flow_action_arg {
  */
 struct net_flow_action {
 	char *name;
-	int uid;
+	__u32 uid;
 	struct net_flow_action_arg *args;
 };
 
@@ -106,12 +106,12 @@ struct net_flow_action {
  * @mask_u#  mask value of field reference
  */
 struct net_flow_field_ref {
-	int next_node;
-	int instance;
-	int header;
-	int field;
-	int mask_type;
-	int type;
+	__u32 next_node;
+	__u32 instance;
+	__u32 header;
+	__u32 field;
+	__u32 mask_type;
+	__u32 type;
 	union {
 		struct {
 			__u8 value_u8;
@@ -145,12 +145,12 @@ struct net_flow_field_ref {
  */
 struct net_flow_tbl {
 	char *name;
-	int uid;
-	int source;
-	int apply_action;
-	int size;
+	__u32 uid;
+	__u32 source;
+	__u32 apply_action;
+	__u32 size;
 	struct net_flow_field_ref *matches;
-	int *actions;
+	__u32 *actions;
 };
 
 /* @struct net_flow_hdr_node
@@ -163,8 +163,8 @@ struct net_flow_tbl {
  */
 struct net_flow_hdr_node {
 	char *name;
-	int uid;
-	int *hdrs;
+	__u32 uid;
+	__u32 *hdrs;
 	struct net_flow_field_ref *jump;
 };
 
@@ -176,7 +176,7 @@ struct net_flow_hdr_node {
  * @jump  encoding of graph structure as a case jump statement
  */
 struct net_flow_tbl_node {
-	int uid;
+	__u32 uid;
 	__u32 flags;
 	struct net_flow_field_ref *jump;
 };
@@ -193,9 +193,9 @@ struct net_flow_tbl_node {
  * Flows must match all entries in match set.
  */
 struct net_flow_flow {
-	int table_id;
-	int uid;
-	int priority;
+	__u32 table_id;
+	__u32 uid;
+	__u32 priority;
 	struct net_flow_field_ref *matches;
 	struct net_flow_action *actions;
 };
