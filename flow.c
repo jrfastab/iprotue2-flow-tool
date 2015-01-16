@@ -928,7 +928,7 @@ int flow_create_tbl_send(int verbose, int pid, int family, int ifindex, int argc
 {
 	struct nlattr *nest, *nest1;
 	struct net_flow_field_ref matches[MAX_MATCHES];
-	int acts[MAX_ACTIONS];
+	__u32 acts[MAX_ACTIONS];
 	int match_count = 0, action_count = 0;
 	struct flow_msg *msg;
 	int err = 0, advance = 0;
