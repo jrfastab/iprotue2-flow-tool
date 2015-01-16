@@ -816,6 +816,8 @@ int get_action_arg(int argc, char **argv, bool need_args,
 			break;
 		case NET_FLOW_ACTION_ARG_TYPE_NULL:
 			break;
+		case __NET_FLOW_ACTION_ARG_TYPE_VAL_MAX:
+			exit(-1);
 		}
 
 		if (err != 1)
