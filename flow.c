@@ -520,6 +520,7 @@ void process_rx_message(int verbose)
 	if (msg) {
 		struct nlmsghdr *nlh = msg->msg;
 		struct genlmsghdr *glh = nlmsg_data(nlh);
+
 		type = glh->cmd;
 		type_cb[type](msg, verbose);
 	}
@@ -1376,6 +1377,7 @@ int flow_send_recv(int verbose, uint32_t pid, int family, uint32_t ifindex, uint
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX);
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex);
 
+printf("%s: doing a send\n", __func__);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 
@@ -1406,7 +1408,7 @@ int main(int argc, char **argv)
 			flow_usage();
 			exit(-1);
 		case 'p':
-			err = sscanf(*argv, "%u", &pid);
+			err = sscanf(optarg, "%u", &pid);
 			if (err < 0) {
 				flow_usage();
 				exit(-1);

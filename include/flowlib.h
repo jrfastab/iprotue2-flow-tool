@@ -74,7 +74,7 @@ unsigned int find_table(char *name);
 unsigned int find_header_node(char *name);
 unsigned int find_field(char *name, unsigned int hdr);
 
-void pp_action(FILE *fp, int p, struct net_flow_action *ref);
+void pp_action(FILE *fp, int p, struct net_flow_action *ref, bool print_values);
 void pp_table(FILE *fp, int p, struct net_flow_tbl *ref);
 void pp_header(FILE *fp, int p, struct net_flow_hdr *ref);
 void pp_flows(FILE *fp, int p, struct net_flow_flow *ref);

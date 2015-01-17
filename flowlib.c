@@ -78,9 +78,6 @@ struct net_flow_hdr_node *graph_nodes[MAX_NODES];
 
 char *graph_names(unsigned int uid);
 char *table_names(unsigned int uid);
-void pp_fields(FILE *fp, int print, struct net_flow_field_ref *ref);
-void pp_action(FILE *fp, int print, struct net_flow_action *act);
-void pp_actions(FILE *fp, int print, struct net_flow_action *actions);
 void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes);
 void ppg_header_graph(FILE *fp, struct net_flow_hdr_node *nodes);
 void pp_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes);
@@ -514,7 +511,7 @@ static void pp_field_ref(FILE *fp, int print, struct net_flow_field_ref *ref, bo
 		pfprintf(fp, print, "\n");
 }
 
-void pp_fields(FILE *fp, int print, struct net_flow_field_ref *ref)
+static void pp_fields(FILE *fp, int print, struct net_flow_field_ref *ref)
 {
 	int i;
 	bool first = true;
@@ -540,7 +537,7 @@ const char *flow_table_arg_type_str[__NET_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 	"u64",
 };
 
-void pp_action(FILE *fp, int print, struct net_flow_action *act)
+void pp_action(FILE *fp, int print, struct net_flow_action *act, bool print_values)
 {
 	struct net_flow_action_arg *arg;
 	int i;
@@ -555,7 +552,10 @@ void pp_action(FILE *fp, int print, struct net_flow_action *act)
 
 		pfprintf(fp, print, "%s %s ",
 			 flow_table_arg_type_str[arg->type],
-			 arg->name ? arg->name : empty);
+			 arg->type != NET_FLOW_ACTION_ARG_TYPE_NULL ? arg->name : empty);
+
+		if (!print_values)
+			continue;
 
 		switch (arg->type) {
 		case NET_FLOW_ACTION_ARG_TYPE_U8:
@@ -579,12 +579,12 @@ out:
 	pfprintf(fp, print, " )\n");
 }
 
-void pp_actions(FILE *fp, int print, struct net_flow_action *actions)
+static void pp_actions(FILE *fp, int print, struct net_flow_action *actions)
 {
 	int i;
 
 	for (i = 0; actions[i].uid; i++)
-		pp_action(fp, print, &actions[i]);
+		pp_action(fp, print, &actions[i], true);
 }
 
 void pp_table(FILE *fp, int print, struct net_flow_tbl *table)
@@ -609,7 +609,7 @@ void pp_table(FILE *fp, int print, struct net_flow_tbl *table)
 			}
 
 			if (act->uid)
-				pp_action(stdout, print, act);
+				pp_action(stdout, print, act, false);
 		}
 	}
 }
@@ -624,7 +624,10 @@ void pp_header(FILE *fp, int print, struct net_flow_hdr *header)
 	for (f = &header->fields[i];
 	     f->uid;
 	     f = &header->fields[++i]) {
-		pfprintf(fp, print, " %s:* ", f->name);
+		if (f->bitwidth)
+			pfprintf(fp, print, " %s:%i ", f->name, f->bitwidth);
+		else
+			pfprintf(fp, print, " %s:* ", f->name);
 
 		if (i && !(i % 5))
 			pfprintf(fp, print, " \n\t");
@@ -644,7 +647,7 @@ void pp_flow(FILE *fp, int print, struct net_flow_flow *flow)
 	if (flow->matches)
 		pp_fields(fp, print, flow->matches);	
 	if (flow->actions)
-		pp_actions(fp, print, flow->actions);	
+		pp_actions(fp, print, flow->actions);
 }
 
 
@@ -969,7 +972,7 @@ static int flow_get_action_arg(struct net_flow_action_arg *arg, struct nlattr *n
 
 		nla_strlcpy(arg->name, tb[NET_FLOW_ACTION_ARG_NAME], (unsigned int)max);
 	} else {
-		arg->name = "none";
+		arg->name = none;
 	}
 
 	arg->type = nla_get_u32(tb[NET_FLOW_ACTION_ARG_TYPE]);
@@ -1078,7 +1081,7 @@ done:
 		a->args = act->args;
 	}
 	actions[uid] = act;
-	pp_action(fp, print, act);
+	pp_action(fp, print, act, false);
 	return 0;
 }
 
@@ -1599,6 +1602,11 @@ static int flow_put_action_args(struct nl_msg *nlbuf, struct net_flow_action_arg
 		arg = nla_nest_start(nlbuf, NET_FLOW_ACTION_ARG);
 		if (!arg)
 			return -ENOMEM;
+
+		if (nla_put_string(nlbuf, NET_FLOW_ACTION_ARG_NAME, args[i].name)) {
+			nla_nest_cancel(nlbuf, arg);
+			return -EMSGSIZE;
+		}
 
 		if (nla_put_u32(nlbuf,
 				NET_FLOW_ACTION_ARG_TYPE,
