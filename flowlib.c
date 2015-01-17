@@ -293,7 +293,7 @@ void flow_push_graph_nodes(struct net_flow_hdr_node **n)
 {
 	unsigned int i;
 
-	for (i = 0; n[i]->uid; i++)
+	for (i = 0; n[i]; i++)
 		graph_nodes[n[i]->uid] = n[i];
 }
 
@@ -663,17 +663,15 @@ void pp_flows(FILE *fp, int print, struct net_flow_flow *flows)
 }
 
 static void pp_jump_table(FILE *fp, int print,
-			  struct net_flow_field_ref *jump)
+			  struct net_flow_jump_table *jump)
 {
 	if (!print)
 		return;
-
-	pp_field_ref(fp, print, jump, 0, false, NULL);
-	if (!jump->next_node)
+	pp_field_ref(fp, print, &jump->field, 0, false, NULL);
+	if (!jump->node)
 		pfprintf(fp, print, " -> terminal\n");
-	else {
-		pfprintf(fp, print, " -> %s\n", table_names(jump->next_node));
-	}
+	else
+		pfprintf(fp, print, " -> %s\n", table_names(jump->node));
 
 }
 
@@ -737,17 +735,22 @@ void pp_table_graph(FILE *fp, int print, struct net_flow_tbl_node *nodes)
 
 		pfprintf(fp, print, "\t%s: ", table_names(nodes[i].uid));
 		pp_tbl_node_flags(fp, print, nodes[i].flags);
-		for (j = 0; nodes[i].jump[j].next_node; ++j)
-			pp_jump_table(fp, print, &nodes[i].jump[j]);
+
+		if (nodes[i].jump) {
+			for (j = 0; nodes[i].jump[j].node; ++j)
+				pp_jump_table(fp, print, &nodes[i].jump[j]);
+		} else {
+			pfprintf(fp, print, " -> terminal\n");
+		}
 	}
 }
 
-static void ppg_jump_table(struct net_flow_field_ref *jump,
+static void ppg_jump_table(struct net_flow_jump_table *jump,
 			   Agraph_t *g, Agnode_t *n)
 {
 	//pp_field_ref(fp, print, &jump->field, 0, false);
-	if (jump->next_node > 0)
-		agedge(g, n, graphviz_table_nodes[jump->next_node], 0, 1);
+	if (jump->node > 0)
+		agedge(g, n, graphviz_table_nodes[jump->node], 0, 1);
 }
 
 void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes)
@@ -778,7 +781,7 @@ void ppg_table_graph(FILE *fp, struct net_flow_tbl_node *nodes)
 
 	qsort(nodes, i, sizeof(*nodes), flow_compar_graph_nodes);
 	for (i = 0; nodes[i].uid; i++) {
-		for (j = 0; nodes[i].jump[j].next_node; ++j)
+		for (j = 0; nodes[i].jump && nodes[i].jump[j].node; ++j)
 			ppg_jump_table(&nodes[i].jump[j], s,
 				       graphviz_table_nodes[nodes[i].uid]);
 	}
@@ -802,10 +805,10 @@ void ppg_header_graph(FILE *fp, struct net_flow_hdr_node *nodes)
 #endif
 
 	for (i = 0; nodes[i].uid; i++) {
-		for (j = 0; nodes[i].jump[j].next_node; ++j) {
-			if (nodes[i].jump[j].next_node > 0) {
-				e = agedge(g, graphviz_header_nodes[nodes[i].uid], graphviz_header_nodes[nodes[i].jump[j].next_node], 0, 1);
-				pp_field_ref(fp, false, &nodes[i].jump[j], 0, false, e);
+		for (j = 0; nodes[i].jump && nodes[i].jump[j].node; ++j) {
+			if (nodes[i].jump[j].node > 0) {
+				e = agedge(g, graphviz_header_nodes[nodes[i].uid], graphviz_header_nodes[nodes[i].jump[j].node], 0, 1);
+				pp_field_ref(fp, false, &nodes[i].jump[j].field, 0, false, e);
 			}
 		}
 	}
@@ -822,17 +825,17 @@ void pp_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes)
 	for (i = 0; nodes[i].uid; i++) {
 		pfprintf(fp, print, "%s-node: ", nodes[i].name);
 
-		for (j = 0; nodes[i].hdrs[j]; j++)
+		for (j = 0; nodes[i].hdrs && nodes[i].hdrs[j]; j++)
 			pfprintf(fp, print, " %s ",
 				 headers_names(nodes[i].hdrs[j]));
 
 		pfprintf(fp, print, "\n");	
-		for (j = 0; nodes[i].jump[j].next_node; ++j) {
-			pp_field_ref(fp, print, &nodes[i].jump[j], 0, false, NULL);
-			if (!nodes[i].jump[j].next_node)
+		for (j = 0; nodes[i].jump && nodes[i].jump[j].node; ++j) {
+			pp_field_ref(fp, print, &nodes[i].jump[j].field, 0, false, NULL);
+			if (!nodes[i].jump[j].node)
 				pfprintf(fp, print, " -> terminal\n");
 			else
-				pfprintf(fp, print, " -> %s\n", graph_names(nodes[i].jump[j].next_node));
+				pfprintf(fp, print, " -> %s\n", graph_names(nodes[i].jump[j].node));
 		}
 		pfprintf(fp, print, "\n");
 	}
@@ -847,9 +850,6 @@ int flow_get_field(FILE *fp, int print, struct nlattr *nla, struct net_flow_fiel
 			       nla, net_flow_field_policy);
 	if (err)
 		return err;
-
-	if (ref[NET_FLOW_FIELD_REF_NEXT_NODE])
-		field->next_node = nla_get_u32(ref[NET_FLOW_FIELD_REF_NEXT_NODE]);
 
 	if (!ref[NET_FLOW_FIELD_REF_INSTANCE] ||
 	    !ref[NET_FLOW_FIELD_REF_HEADER] ||
@@ -1399,16 +1399,30 @@ int flow_get_headers(FILE *fp, int print, struct nlattr *nl, struct net_flow_hdr
 
 
 
-static int flow_get_jump(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref *ref)
+static int flow_get_jump(FILE *fp, int print, struct nlattr *nl, struct net_flow_jump_table *j)
 {
-	flow_get_field(fp, print, nl, ref);
-	pp_jump_table(fp, print, ref);
+	struct nlattr *ref[NET_FLOW_FIELD_REF_MAX+1];
+	int err;
+
+	err = nla_parse_nested(ref, NET_FLOW_FIELD_REF_MAX, nl, net_flow_field_policy);
+	if (err)
+		return err;
+
+	if (!ref[NET_FLOW_FIELD_REF_NEXT_NODE])
+		return -EINVAL;
+
+	j->node = nla_get_u32(ref[NET_FLOW_FIELD_REF_NEXT_NODE]);
+	if (j->node > 0) {
+		flow_get_field(fp, print, nl, &j->field);
+	}
+
+	pp_jump_table(fp, print, j);
 	return 0;
 }
 
-static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct net_flow_field_ref **ref)
+static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct net_flow_jump_table **ref)
 {
-	struct net_flow_field_ref *jump;
+	struct net_flow_jump_table *jump;
 	struct nlattr *i;
 	int rem;
 	unsigned int j;
@@ -1416,11 +1430,9 @@ static int flow_get_jump_table(FILE *fp, int print, struct nlattr *nl, struct ne
 	rem = nla_len(nl);
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); i = nla_next(i, &rem))
 		j++;
-
-	jump = calloc(j + 1, sizeof(struct net_flow_field_ref));
+	jump = calloc(j + 1, sizeof(*jump));
 	if (!jump)
 		return -ENOMEM;
-
 	rem = nla_len(nl);
 	for (j = 0, i = nla_data(nl); nla_ok(i, rem); j++, i = nla_next(i, &rem))
 		flow_get_jump(fp, print, i, &jump[j]);
@@ -1493,17 +1505,16 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 		}
 
 		if (!node[NET_FLOW_HEADER_NODE_UID]) {
-			fprintf(stderr, "Warning, missing header node uid\n");
+			fprintf(stderr, "Warning, missing header node uid attr %i\n", j);
 			return -EINVAL;
 		}
 
 		nodes[j].uid = nla_get_u32(node[NET_FLOW_HEADER_NODE_UID]);
+		graph_nodes[nodes[j].uid] = &nodes[j];
 
 		if (!node[NET_FLOW_HEADER_NODE_JUMP] ||
-		    !node[NET_FLOW_HEADER_NODE_HDRS]) {
-			fprintf(stderr, "Warning, missing header node hdrs and jump table\n");
-			continue;
-		}
+		    !node[NET_FLOW_HEADER_NODE_HDRS])
+			continue; /* Not requried for terminating nodes */
 
 		err = flow_get_header_refs(node[NET_FLOW_HEADER_NODE_HDRS],
 					   &nodes[j].hdrs);
@@ -1511,7 +1522,6 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 			fprintf(stderr, "Warning header refs parse error. aborting.\n");
 			return -EINVAL;
 		}
-
 		err = flow_get_jump_table(fp, false,
 					  node[NET_FLOW_HEADER_NODE_JUMP],
 					  &nodes[j].jump);
@@ -1520,8 +1530,8 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 			return -EINVAL;
 		}
 
-		graph_nodes[nodes[j].uid] = &nodes[j];
 	}	
+
 	if (print == PRINT_GRAPHVIZ)
 		ppg_header_graph(stdout, nodes);
 	else if (print)
@@ -1567,10 +1577,8 @@ int flow_get_tbl_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_t
 		if (node[NET_FLOW_TABLE_GRAPH_NODE_FLAGS])
 			n->flags = nla_get_u32(node[NET_FLOW_TABLE_GRAPH_NODE_FLAGS]);
 
-		if (!node[NET_FLOW_TABLE_GRAPH_NODE_JUMP]) {
-			fprintf(stderr, "Warning, missing graph node jump table\n");
-			continue;
-		}
+		if (!node[NET_FLOW_TABLE_GRAPH_NODE_JUMP])
+			continue; /* valid for terminating nodes */
 
 		err = flow_get_jump_table(fp, false, node[NET_FLOW_TABLE_GRAPH_NODE_JUMP], &n->jump);
 		if (err) {
@@ -1768,10 +1776,6 @@ int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref)
 	    nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_TYPE, ref->type))
 		return -EMSGSIZE;
 
-	if (ref->next_node &&
-	    nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_NEXT_NODE, ref->next_node))
-		return -EMSGSIZE;
-
 	if (!ref->type)
 		return 0;
 
@@ -1942,14 +1946,14 @@ int flow_put_tables(struct nl_msg *nlbuf, struct net_flow_tbl *ref)
 
 int flow_put_table_graph(struct nl_msg *nlbuf, struct net_flow_tbl_node **ref)
 {
-	struct nlattr *nodes, *node, *jump;
-	int i = 0, j = 0;
+	struct nlattr *nodes, *node, *jump, *entry;
+	int i = 0, j = 0, err;
 
 	nodes = nla_nest_start(nlbuf, NET_FLOW_TABLE_GRAPH);
 	if (!nodes)
 		return -EMSGSIZE;
 
-	for (i = 0; ref[i]->uid; i++) {
+	for (i = 0; ref[i]; i++) {
 		node = nla_nest_start(nlbuf, NET_FLOW_TABLE_GRAPH_NODE);
 		if (!node)
 			return -EMSGSIZE;
@@ -1962,8 +1966,26 @@ int flow_put_table_graph(struct nl_msg *nlbuf, struct net_flow_tbl_node **ref)
 		if (!jump)
 			return -EMSGSIZE;
 
-		for (j = 0; ref[i]->jump[j].next_node; j++)
-			nla_put(nlbuf, NET_FLOW_JUMP_TABLE_ENTRY, sizeof(struct net_flow_field_ref), &ref[i]->jump[j]);
+		for (j = 0; ref[i]->jump[j].node; j++) {
+			entry = nla_nest_start(nlbuf, NET_FLOW_JUMP_ENTRY);
+			if (!entry)
+				return -EMSGSIZE;
+
+			if (nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_NEXT_NODE, ref[i]->jump[j].node))
+				return -EMSGSIZE;
+
+			err = flow_put_field_ref(nlbuf, &ref[i]->jump[j].field);
+			if (err)
+				return -EMSGSIZE;
+
+#if 0
+			err = flow_put_field_value(nlbuf, &ref[i]->jump[j]);
+			if (err)
+				return err;
+#endif
+
+			nla_nest_end(nlbuf, entry);
+		}
 
 		nla_nest_end(nlbuf, jump);
 		nla_nest_end(nlbuf, node);
@@ -1976,7 +1998,7 @@ int flow_put_table_graph(struct nl_msg *nlbuf, struct net_flow_tbl_node **ref)
 static int net_flow_put_header_node(struct nl_msg *nlbuf,
 				    struct net_flow_hdr_node *node)
 {
-	struct nlattr *hdrs, *jumps;
+	struct nlattr *hdrs, *jumps, *entry;
 	int i, err;
 
 	if (nla_put_string(nlbuf, NET_FLOW_HEADER_NODE_NAME, node->name) ||
@@ -2001,14 +2023,25 @@ static int net_flow_put_header_node(struct nl_msg *nlbuf,
 	if (!jumps)
 		return -EMSGSIZE;	
 
-	for (i = 0; node->jump[i].next_node; i++) {
-		err = nla_put(nlbuf, NET_FLOW_JUMP_TABLE_ENTRY,
-			      sizeof(struct net_flow_field_ref),
-			      &node->jump[i]);
-		if (err) {
-			nla_nest_cancel(nlbuf, jumps);	
+	for (i = 0; node->jump[i].node; i++) {
+		entry = nla_nest_start(nlbuf, NET_FLOW_JUMP_ENTRY);
+		if (!entry)
 			return -EMSGSIZE;
-		}
+
+		if (nla_put_u32(nlbuf, NET_FLOW_FIELD_REF_NEXT_NODE, node->jump[i].node))
+			return -EMSGSIZE;
+
+		err = flow_put_field_ref(nlbuf, &node->jump[i].field);
+		if (err)
+			return -EMSGSIZE;
+
+#if 0
+			err = flow_put_field_value(nlbuf, &ref[i]->jump[j]);
+			if (err)
+				return err;
+#endif
+
+		nla_nest_end(nlbuf, entry);
 	}
 	nla_nest_end(nlbuf, jumps);
 
@@ -2025,11 +2058,10 @@ int flow_put_header_graph(struct nl_msg *nlbuf,
 	if (!nodes)
 		return -EMSGSIZE;
 
-	for (i = 0; g[i]->uid; i++) {
+	for (i = 0; g[i]; i++) {
 		node = nla_nest_start(nlbuf, NET_FLOW_HEADER_GRAPH_NODE);
 		if (!node)
 			return -EMSGSIZE;
-
 		err = net_flow_put_header_node(nlbuf, g[i]);
 		if (err)
 			return -EMSGSIZE;

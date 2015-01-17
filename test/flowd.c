@@ -626,11 +626,11 @@ int main(int argc, char **argv)
 	}
 
 #ifdef FLOWD_MOCK_SUPPORT
-	for (i = 0; my_table_list[i]->uid; i++)
+	for (i = 0; my_table_list[i]; i++)
 		flowd_mock_tables[i] = calloc(1 + my_table_list[i]->size, sizeof(struct net_flow_flow));
 #endif
 
-	for (i = 0; my_table_list[i]->uid; i++)
+	for (i = 0; my_table_list[i]; i++)
 		my_dyn_table_list[my_table_list[i]->uid] = *my_table_list[i];
 
 	/* Need to populate headers, tables, and actions for string lookup */

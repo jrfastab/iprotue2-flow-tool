@@ -1377,7 +1377,6 @@ int flow_send_recv(int verbose, uint32_t pid, int family, uint32_t ifindex, uint
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX);
 	nla_put_u32(msg->nlbuf, NET_FLOW_IDENTIFIER, ifindex);
 
-printf("%s: doing a send\n", __func__);
 	nl_send_auto(nsd, msg->nlbuf);
 	process_rx_message(verbose);
 

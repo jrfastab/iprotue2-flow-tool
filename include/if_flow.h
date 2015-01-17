@@ -106,7 +106,6 @@ struct net_flow_action {
  * @mask_u#  mask value of field reference
  */
 struct net_flow_field_ref {
-	__u32 next_node;
 	__u32 instance;
 	__u32 header;
 	__u32 field;
@@ -153,6 +152,19 @@ struct net_flow_tbl {
 	__u32 *actions;
 };
 
+/**
+ * @struct net_flow_jump_table
+ * @brief encodes an edge of the table graph or header graph
+ *
+ * @field   field reference must be true to follow edge
+ * @node    node identifier to connect edge to
+ */
+
+struct net_flow_jump_table {
+	struct net_flow_field_ref field;
+	__u32 node; /* <0 is a parser error */
+};
+
 /* @struct net_flow_hdr_node
  * @brief node in a header graph of header fields.
  *
@@ -165,7 +177,7 @@ struct net_flow_hdr_node {
 	char *name;
 	__u32 uid;
 	__u32 *hdrs;
-	struct net_flow_field_ref *jump;
+	struct net_flow_jump_table *jump;
 };
 
 /* @struct net_flow_tbl_node
@@ -178,7 +190,7 @@ struct net_flow_hdr_node {
 struct net_flow_tbl_node {
 	__u32 uid;
 	__u32 flags;
-	struct net_flow_field_ref *jump;
+	struct net_flow_jump_table *jump;
 };
 
 /**
@@ -333,12 +345,12 @@ enum {
 };
 #define NET_FLOW_TABLE_ATTR_MAX (__NET_FLOW_TABLE_ATTR_MAX - 1)
 
-#define NET_FLOW_JUMP_TABLE_DONE	-1
+#define NET_FLOW_JUMP_TABLE_DONE 0
 
 enum {
-	NET_FLOW_JUMP_TABLE_ENTRY_UNSPEC,
-	NET_FLOW_JUMP_TABLE_ENTRY,
-	__NET_FLOW_JUMP_TABLE_ENTRY_MAX,
+	NET_FLOW_JUMP_ENTRY_UNSPEC,
+	NET_FLOW_JUMP_ENTRY,
+	__NET_FLOW_JUMP_ENTRY_MAX,
 };
 
 enum {
