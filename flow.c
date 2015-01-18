@@ -1308,7 +1308,7 @@ int flow_set_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int a
 		argc--; argv++;
 	}
 
-	if (err) {
+	if (err < 0) {
 		printf("Invalid argument\n");
 		set_flow_usage();
 		exit(-1);
