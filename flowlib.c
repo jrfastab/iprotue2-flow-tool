@@ -1512,8 +1512,7 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 		nodes[j].uid = nla_get_u32(node[NET_FLOW_HEADER_NODE_UID]);
 		graph_nodes[nodes[j].uid] = &nodes[j];
 
-		if (!node[NET_FLOW_HEADER_NODE_JUMP] ||
-		    !node[NET_FLOW_HEADER_NODE_HDRS])
+		if (!node[NET_FLOW_HEADER_NODE_HDRS])
 			continue; /* Not requried for terminating nodes */
 
 		err = flow_get_header_refs(node[NET_FLOW_HEADER_NODE_HDRS],
@@ -1522,6 +1521,10 @@ int flow_get_hdrs_graph(FILE *fp, int print, struct nlattr *nl, struct net_flow_
 			fprintf(stderr, "Warning header refs parse error. aborting.\n");
 			return -EINVAL;
 		}
+
+		if (!node[NET_FLOW_HEADER_NODE_JUMP])
+			continue;
+
 		err = flow_get_jump_table(fp, false,
 					  node[NET_FLOW_HEADER_NODE_JUMP],
 					  &nodes[j].jump);

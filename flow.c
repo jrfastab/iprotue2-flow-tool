@@ -565,20 +565,28 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	 * from the user into a correct header_node and field nodes.
 	 */
 	instance = strtok(strings, ".");
-	if (!instance)
+	if (!instance) {
+		fprintf(stderr, "invalid match instance input should be, \"instance.field\"\n");
 		return -EINVAL;
+	}
 
 	s_fld = strtok(NULL, ".");
-	if (!s_fld)
+	if (!s_fld) {
+		fprintf(stderr, "invalid match field input should be, \"instance.field\"\n");
 		return -EINVAL;
+	}
 
 	match->instance = find_header_node(instance);
-	if (!match->instance)
+	if (!match->instance) {
+		fprintf(stderr, "unknown instance `%s`, check \"get_header_graph\".\n", instance);
 		return -EINVAL;
+	}
 
 	hdr_node = get_graph_node(match->instance);	
-	if (!hdr_node) /* with an abundance of caution */
+	if (!hdr_node) { /* with an abundance of caution */
+		fprintf(stderr, "graph_node lookup failed. Mostly likely a model bug\n");
 		return -EINVAL;
+	}
 
 	/* For now only support parsing single header per node. Its not
 	 * very clera what it means to support multiple header types or
@@ -588,13 +596,17 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	 * it though.
 	 */ 
 
-	if (!hdr_node->hdrs)
+	if (!hdr_node->hdrs) {
+		fprintf(stderr, "%s(%i) node appears to be empty? Possible model bug\n", hdr_node->name, hdr_node->uid);
 		return -EINVAL;
+	}
 
 	match->header = hdr_node->hdrs[0];
 	match->field = find_field(s_fld, match->header);
-	if (!match->field)
+	if (!match->field) {
+		fprintf(stderr, "unknown field %s, check \"get_headers\".\n", s_fld);
 		return -EINVAL;
+	}
 
 	field = get_fields(match->header, match->field);
 	if (!field)
@@ -603,12 +615,14 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 	if (need_mask_type) {
 		advance++;
 		NEXT_ARG();
-		if (strcmp(*argv, "lpm") == 0)
+		if (strcmp(*argv, "lpm") == 0) {
 			match->mask_type = NET_FLOW_MASK_TYPE_LPM;
-		else if (strcmp(*argv, "exact") == 0)
+		} else if (strcmp(*argv, "exact") == 0) {
 			match->mask_type = NET_FLOW_MASK_TYPE_EXACT;
-		else
+		} else {
+			fprintf(stderr, "unknown mask type %s.\n", *argv);
 			return -EINVAL;
+		}
 	}
 
 	if (!need_value)
@@ -621,32 +635,40 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu8 "", &match->v.u8.value_u8);
 
-		if (err != 1)
+		if (err != 1) {
+			fprintf(stderr, "Invalid value %s, value must be 0xXX or integer\n", *argv);
 			return -EINVAL;
+		}
 	} else if (field->bitwidth <= 16) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 		err = sscanf(*argv, "0x%" SCNx16 "", &match->v.u16.value_u16);
 		if (err != 1)
 			err = sscanf(*argv, "%" SCNu16 "", &match->v.u16.value_u16);
 
-		if (err != 1)
+		if (err != 1) {
+			fprintf(stderr, "Invalid value %s, value must be 0xXXXX or integer\n", *argv);
 			return -EINVAL;
+		}
 	} else if (field->bitwidth <= 32) {
 		match->type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
 		has_dots = strtok(*argv, " ");
 		if (strchr(has_dots, '.')) {
 			err = inet_aton(*argv,
 				(struct in_addr *)&match->v.u32.value_u32);
-			if (!err)
+			if (!err) {
+				fprintf(stderr, "Invalid value %s, looks like an IP address but is invalid.\n", *argv);
 				return -EINVAL;
+			}
 		} else {
 			err = sscanf(*argv, "0x%" SCNx32 "",
 					&match->v.u32.value_u32);
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu32 "",
 						&match->v.u32.value_u32);
-			if (err != 1)
+			if (err != 1) {
+				fprintf(stderr, "Invalid u32 bit value %s\n", *argv);
 				return -EINVAL;
+			}
 		}
 	} else if (field->bitwidth <= 64) {
 		errno = 0;
@@ -659,8 +681,10 @@ int get_match_arg(int argc, char **argv, bool need_value, bool need_mask_type,
 			if (err != 1)
 				err = sscanf(*argv, "%" SCNu64 "",
 					&match->v.u64.value_u64);
-			if (err != 1)
+			if (err != 1) {
+				fprintf(stderr, "Invalid u64 bit value or MAC address value %s\n", *argv);
 				return -EINVAL;
+			}
 		}
 	}
 	advance++;
@@ -845,20 +869,40 @@ int flow_destroy_tbl_send(int verbose, uint32_t pid, int family, unsigned int if
 		if (strcmp(*argv, "name") == 0) {
 			NEXT_ARG();
 			table.name = strndup(*argv, NET_FLOW_MAXNAME);
+			if (!table.name) {
+				fprintf(stderr, "missing table name\n");
+				del_table_usage();
+				exit(-1);
+			}
 			table.uid = get_table_id(table.name);	
+			if (!table.uid) {
+				fprintf(stderr, "unknown table name check get_tables\n");
+				del_table_usage();
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
 			/* todo: fix ugly type cast */
-			table.source = (__u32)atoi(*argv);
+			err = sscanf(*argv, "%u", &table.source);
+			if (err < 0) {
+				fprintf(stderr, "invalid source value\n");
+				del_table_usage();
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "id") == 0) {
 			NEXT_ARG();
 			/* todo: fix ugly type cast */
-			table.uid = (__u32) atoi(*argv);	
+			err = sscanf(*argv, "%u", &table.uid);
+			if (err < 0) {
+				fprintf(stderr, "invalid table UID value\n");
+				del_table_usage();
+				exit(-1);
+			}
 		}
 		argc--; argv++;
 	}
 
-	if (err) {
+	if (err < 0) {
 		printf("Invalid argument\n");
 		del_table_usage();
 		exit(-1);
@@ -943,7 +987,7 @@ int flow_create_tbl_send(int verbose, uint32_t pid, int family, uint32_t ifindex
 	while (argc > 0) {
 		if (strcmp(*argv, "match") == 0) {
 			advance = get_match_arg(argc, argv, false, true, &matches[match_count]);
-			if (advance < 0)
+			if (advance < 1)
 				return -EINVAL;
 			match_count++;
 			for (; advance; advance--)
@@ -961,26 +1005,36 @@ int flow_create_tbl_send(int verbose, uint32_t pid, int family, uint32_t ifindex
 		} else if (strcmp(*argv, "name") == 0) {
 			NEXT_ARG();
 			table.name = strndup(*argv, NET_FLOW_MAXNAME);
+			if (!table.name) {
+				printf("missing valid table name\n");
+				return -EINVAL;
+			}
 		} else if (strcmp(*argv, "source") == 0) {
 			NEXT_ARG();
 			err = sscanf(*argv, "%u", &table.source);
-			if (err < 0)
+			if (err < 0) {
+				printf("invalid table source id\n");
 				return -EINVAL;
+			}
 		} else if (strcmp(*argv, "id") == 0) {
 			NEXT_ARG();
 			err = sscanf(*argv, "%u", &table.uid);
-			if (err < 0)
+			if (err < 0) {
+				printf("invalid table id\n");
 				return -EINVAL;
+			}
 		} else if (strcmp(*argv, "size") == 0) {
 			NEXT_ARG();
-			err = sscanf(*argv, "%u", &table.source);
-			if (err < 0)
+			err = sscanf(*argv, "%u", &table.size);
+			if (err < 0) {
+				printf("invalid or missing table size\n");
 				return -EINVAL;
+			}
 		}
 		argc--; argv++;
 	}
 
-	if (err) {
+	if (err < 0) {
 		printf("Invalid argument\n");
 		set_table_usage();
 		exit(-1);
