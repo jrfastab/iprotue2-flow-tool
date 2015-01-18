@@ -305,14 +305,29 @@ struct net_flow_hdr *my_header_list[8] =
  * ACTION DEFINITIONS
  *******************************************************************/
 
-#define ACTION_SET_EGRESS_PORT 1
+enum better_pipeline_action_ids {
+	ACTION_SET_EGRESS_PORT = 1,
+	ACTION_SET_TUNNEL_ID,
+	ACTION_SET_EGRESS_QUEUE,
+	ACTION_SET_HOST_METADATA,
+	ACTION_VXLAN_DECAP,
+	ACTION_VXLAN_ENCAP,
+	ACTION_DROP_PACKET,
+	ACTION_ROUTE_VIA_ECMP,
+	ACTION_ROUTE,
+	ACTION_FORWARD_VIA_ECMP,
+	ACTION_SET_DST_MAC,
+	ACTION_SET_SRC_MAC,
+	ACTION_NORMAL,
+};
+
 struct net_flow_action set_egress_port = {
 	.name = "set_egress_port",
 	.uid = ACTION_SET_EGRESS_PORT,
 	.args = set_egress_port_args,
 };
 
-struct net_flow_action_arg set_tunnel_id_args[2] = {
+struct net_flow_action_arg set_tunnel_id_args[] = {
 	{
 		.name = "tunnel_id",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
@@ -324,14 +339,13 @@ struct net_flow_action_arg set_tunnel_id_args[2] = {
 	},
 };
 
-#define ACTION_SET_TUNNEL_ID 2
 struct net_flow_action set_tunnel_id = {
 	.name = "set_tunnel_id",
 	.uid = ACTION_SET_TUNNEL_ID,
 	.args = set_tunnel_id_args,
 };
 
-struct net_flow_action_arg set_egress_queue_args[2] = {
+struct net_flow_action_arg set_egress_queue_args[] = {
 	{
 		.name = "egress_queue",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
@@ -343,14 +357,13 @@ struct net_flow_action_arg set_egress_queue_args[2] = {
 	},
 };
 
-#define ACTION_SET_EGRESS_QUEUE	3
 struct net_flow_action set_egress_queue = {
 	.name = "set_egress_queue",
 	.uid = ACTION_SET_EGRESS_QUEUE,
 	.args = set_egress_queue_args,
 };
 
-struct net_flow_action_arg set_host_metadata_args[2] = {
+struct net_flow_action_arg set_host_metadata_args[] = {
 	{
 		.name = "host_metadata",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
@@ -362,14 +375,13 @@ struct net_flow_action_arg set_host_metadata_args[2] = {
 	},
 };
 
-#define ACTION_SET_HOST_METADATA 4
 struct net_flow_action set_host_metadata = {
 	.name = "set_host_mata",
 	.uid = ACTION_SET_HOST_METADATA,
 	.args = set_host_metadata_args,
 };
 
-struct net_flow_action_arg vxlan_decap_args[2] = {
+struct net_flow_action_arg vxlan_decap_args[] = {
 	{
 		.name = "vxlan_decap",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
@@ -381,14 +393,13 @@ struct net_flow_action_arg vxlan_decap_args[2] = {
 	},
 };
 
-#define ACTION_VXLAN_DECAP 5
 struct net_flow_action vxlan_decap = {
 	.name = "vxlan_decap",
 	.uid = ACTION_VXLAN_DECAP,
 	.args = vxlan_decap_args,
 };
 
-struct net_flow_action_arg vxlan_encap_args[2] = {
+struct net_flow_action_arg vxlan_encap_args[] = {
 	{
 		.name = "vxlan_encap",
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
@@ -400,21 +411,19 @@ struct net_flow_action_arg vxlan_encap_args[2] = {
 	},
 };
 
-#define ACTION_VXLAN_ENCAP 6
 struct net_flow_action vxlan_encap = {
 	.name = "vxlan_encap",
 	.uid = ACTION_VXLAN_ENCAP,
 	.args = vxlan_encap_args,
 };
 
-#define ACTION_DROP_PACKET 7
 struct net_flow_action drop_packet = {
 	.name = "drop_packet",
 	.uid = ACTION_DROP_PACKET,
 	.args = NULL,
 };
 
-struct net_flow_action_arg route_via_ecmp_args[3] = {
+struct net_flow_action_arg route_via_ecmp_args[] = {
 	{ .name = "ecmp_group_base",
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U16,},
 	{ .name = "ecmp_group_size",
@@ -423,14 +432,13 @@ struct net_flow_action_arg route_via_ecmp_args[3] = {
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
-#define ACTION_ROUTE_VIA_ECMP 8
 struct net_flow_action route_via_ecmp = {
 	.name = "route_via_ecmp",
 	.uid = ACTION_ROUTE_VIA_ECMP,
 	.args = route_via_ecmp_args,
 };
 
-struct net_flow_action_arg route_args[3] = {
+struct net_flow_action_arg route_args[] = {
 	{ .name = "newDMAC",
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U64,},
 	{ .name = "newVLAN",
@@ -439,14 +447,13 @@ struct net_flow_action_arg route_args[3] = {
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
-#define ACTION_ROUTE 9
 struct net_flow_action route = {
 	.name = "route",
 	.uid = ACTION_ROUTE,
 	.args = route_args,
 };
 
-struct net_flow_action_arg forward_via_ecmp_args[3] = {
+struct net_flow_action_arg forward_via_ecmp_args[] = {
 	{ .name = "fwd_group_base",
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U32,},
 	{ .name = "fwd_group_size",
@@ -455,20 +462,38 @@ struct net_flow_action_arg forward_via_ecmp_args[3] = {
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
-#define ACTION_FORWARD_VIA_ECMP 10
 struct net_flow_action forward_via_ecmp = {
 	.name = "forward_via_ecmp",
 	.uid = ACTION_FORWARD_VIA_ECMP,
 	.args = forward_via_ecmp_args,
 };
 
-struct net_flow_action nil_action = {
-	.name = "",
-	.uid = 0,
-	.args = NULL
+struct net_flow_action_arg set_mac_args[] = {
+	{ .name = "mac_address",
+	  .type = NET_FLOW_ACTION_ARG_TYPE_U64,},
+	{ .name = "",
+	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
-struct net_flow_action *my_action_list[11] =
+struct net_flow_action set_dst_mac = {
+	.name = "set_dst_mac",
+	.uid = ACTION_SET_DST_MAC,
+	.args = set_mac_args,
+};
+
+struct net_flow_action set_src_mac = {
+	.name = "set_src_mac",
+	.uid = ACTION_SET_SRC_MAC,
+	.args = set_mac_args,
+};
+
+struct net_flow_action normal = {
+	.name = "normal",
+	.uid = ACTION_NORMAL,
+	.args = NULL,
+};
+
+struct net_flow_action *my_action_list[] =
 {
 	&set_egress_port,
 	&set_tunnel_id,
@@ -480,7 +505,10 @@ struct net_flow_action *my_action_list[11] =
 	&route_via_ecmp,
 	&route,
 	&forward_via_ecmp,
-	&nil_action,
+	&set_dst_mac,
+	&set_src_mac,
+	&normal,
+	NULL,
 };
 
 /********************************************************************
@@ -561,12 +589,15 @@ struct net_flow_field_ref matches_tcam[20] =
 	{ .instance = HEADER_INSTANCE_VXLAN, .header = HEADER_VXLAN, .field = HEADER_VXLAN_VNI, .mask_type = NET_FLOW_MASK_TYPE_LPM},
 };
 
-__u32 actions_ecmp_group[4] = {ACTION_ROUTE, ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-__u32 actions_vxlan_decap[2] = {ACTION_VXLAN_DECAP,0};
-__u32 actions_l2fwd[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-__u32 actions_forward_group[3] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
-__u32 actions_tunnel_encap[2] = {ACTION_VXLAN_ENCAP, 0};
-__u32 actions_tcam[5] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP, ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET, 0};
+__u32 actions_ecmp_group[] = {ACTION_ROUTE, ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_vxlan_decap[] = {ACTION_VXLAN_DECAP,0};
+__u32 actions_l2fwd[] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_forward_group[] = {ACTION_SET_EGRESS_PORT, ACTION_SET_TUNNEL_ID, 0};
+__u32 actions_tunnel_encap[] = {ACTION_VXLAN_ENCAP, 0};
+__u32 actions_tcam[] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP,
+			 ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET,
+			 ACTION_SET_DST_MAC, ACTION_SET_SRC_MAC,
+			 ACTION_NORMAL, 0};
 
 #define TABLE_TCAM 1
 #define TABLE_ECMP_GROUP 2

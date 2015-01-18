@@ -207,7 +207,7 @@ static int flow_cmd_get_actions(struct nlmsghdr *nlh)
 	if (!actions)
 		return -EMSGSIZE;
 		
-	for (i = 0; my_action_list[i]->uid; i++) {
+	for (i = 0; my_action_list[i] && my_action_list[i]->uid; i++) {
 		err = flow_put_action(nlbuf, my_action_list[i]);
 		if (err)
 			return err;

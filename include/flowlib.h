@@ -50,7 +50,7 @@ unsigned int flow_get_flow_errors(struct nlattr *nl);
 int flow_put_field_ref(struct nl_msg *nlbuf, struct net_flow_field_ref *ref);
 int flow_put_matches(struct nl_msg *nlbuf, struct net_flow_field_ref *ref, int type);
 int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref);
-int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *actions);
+int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action **actions);
 int flow_put_headers(struct nl_msg *nlbuf, struct net_flow_hdr **header);
 int flow_put_flows(struct nl_msg *nlbuf, struct net_flow_flow *flow);
 int flow_put_flow(struct nl_msg *nlbuf, struct net_flow_flow *ref);

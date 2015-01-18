@@ -256,7 +256,7 @@ void flow_push_actions(struct net_flow_action **a)
 {
 	unsigned int i;
 
-	for (i = 0; a[i]->uid; i++)
+	for (i = 0; a[i]; i++)
 		actions[a[i]->uid] = a[i];	
 }
 
@@ -1695,7 +1695,7 @@ int flow_put_action(struct nl_msg *nlbuf, struct net_flow_action *ref)
 	return 0;
 }
 
-int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *ref)
+int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action **ref)
 {
 	struct nlattr *actions;
 	int i, err;
@@ -1704,8 +1704,8 @@ int flow_put_actions(struct nl_msg *nlbuf, struct net_flow_action *ref)
 	if (!actions)
 		return -EMSGSIZE;
 		
-	for (i = 0; ref[i].uid; i++) {
-		err = flow_put_action(nlbuf, &ref[i]);
+	for (i = 0; ref[i] && ref[i]->uid; i++) {
+		err = flow_put_action(nlbuf, ref[i]);
 		if (err)
 			return err;
 	}
