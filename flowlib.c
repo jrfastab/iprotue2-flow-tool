@@ -823,7 +823,7 @@ void pp_header_graph(FILE *fp, int print, struct net_flow_hdr_node *nodes)
 		return;
 
 	for (i = 0; nodes[i].uid; i++) {
-		pfprintf(fp, print, "%s-node: ", nodes[i].name);
+		pfprintf(fp, print, "%s: ", nodes[i].name);
 
 		for (j = 0; nodes[i].hdrs && nodes[i].hdrs[j]; j++)
 			pfprintf(fp, print, " %s ",
