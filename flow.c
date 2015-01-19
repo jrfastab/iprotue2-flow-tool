@@ -823,7 +823,7 @@ int get_action_arg(int argc, char **argv, bool need_args,
 					  *argv);
 
 			if (err < ETH_ALEN) {
-				err = sscanf(*argv, "0x" SCNx64 "",
+				err = sscanf(*argv, "0x%" SCNx64 "",
 					     &action->args[i].v.value_u64);
 				if (err != 1)
 					err = sscanf(*argv, "%" SCNu64 "",
