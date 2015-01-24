@@ -127,12 +127,8 @@ unsigned int get_table_id(char *name)
 	int i;
 
 	for (i = 0; i < MAX_TABLES; i++) {
-		if (tables[i]) {
-			tables[i]->name = strdup(name);
-			if (!tables[i]->name)
-				return 0;
+		if (tables[i] && (strcmp(tables[i]->name, name) == 0))
 			return tables[i]->uid;
-		}
 	}
 
 	return 0;
