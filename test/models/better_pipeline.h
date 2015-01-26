@@ -117,7 +117,7 @@ struct net_flow_field ethernet_fields[3] = {
 
 #define HEADER_ETHERNET 1
 struct net_flow_hdr ethernet = {
-	.name = "ethernet",
+	.name = ether_str,
 	.uid = HEADER_ETHERNET,
 	.field_sz = 3,
 	.fields = ethernet_fields,

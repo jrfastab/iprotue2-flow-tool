@@ -4,7 +4,7 @@ CFLAGS=`pkg-config libnl-3.0 libnl-route-3.0 libnl-cli-3.0 libgvc --cflags`  \
 	-Wnested-externs -Wbad-function-cast -Wconversion -Wcast-qual	     \
 	-Wcast-align -Wstrict-prototypes -Wmissing-declarations		     \
 	-Wmissing-include-dirs  -Wdeclaration-after-statement		     \
-	-Wmissing-prototypes -Wold-style-definition
+	-Wmissing-prototypes -Wold-style-definition -Wextra
 
 LDFLAGS=`pkg-config libnl-3.0 libnl-route-3.0 libnl-cli-3.0 libgvc --libs`
 
