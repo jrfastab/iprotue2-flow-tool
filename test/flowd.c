@@ -357,15 +357,16 @@ static int flow_cmd_resolve_flows(struct net_flow_flow *flow, int cmd,
 		}
 		flows = flowd_mock_tables[table];
 
-		if (!flow[i].matches || !flow[i].actions) {
-			fprintf(stderr, "Warning, programming NOP missing %s\n",
-				flow[i].matches ? "matches" : "actions");
-			err = -EINVAL;
-			goto skip_add;
-		}
 
 		switch (cmd) {
 		case NET_FLOW_TABLE_CMD_SET_FLOWS:
+			if (!flow[i].matches || !flow[i].actions) {
+				fprintf(stderr, "Warning, programming NOP missing %s\n",
+					flow[i].matches ? "matches" : "actions");
+				err = -EINVAL;
+				goto skip_add;
+			}
+
 			flows[flow[i].uid] = flow[i];
 			break;
 		case NET_FLOW_TABLE_CMD_DEL_FLOWS:

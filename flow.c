@@ -1186,6 +1186,10 @@ int flow_del_send(int verbose, uint32_t pid, int family, uint32_t ifindex, int a
 		return -EMSGSIZE;
 	}
 
+	err = flow_put_flow_error(msg->nlbuf, NET_FLOW_FLOWS_ERROR_CONT_LOG);
+	if (err)
+		return err;
+
 	flows = nla_nest_start(msg->nlbuf, NET_FLOW_FLOWS);
 	if (!flows)
 		return -EMSGSIZE;
