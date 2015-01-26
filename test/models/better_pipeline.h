@@ -32,14 +32,87 @@
 /********************************************************************
  * HEADER DEFINITIONS
  *******************************************************************/
+static char src_mac[] =  "src_mac";
+static char dst_mac[] =  "dst_mac";
+static char ethertype[] =  "ethertype";
+static char ether_str[] =  "ethernet";
+static char pcp[] = "pcp";
+static char cfi[] = "cfi";
+static char vid[] = "vid";
+static char vlan_str[] = "vlan";
+static char version[] = "version";
+static char ihl[] = "ihl";
+static char dscp[] = "dscp";
+static char ecn[] = "ecn";
+static char length[]= "length";
+static char ident[] = "identification";
+static char flags[] = "flags";
+static char frag_off[] = "fragment_offset";
+static char ttl[] ="ttl";
+static char protocol[]= "protocol";
+static char csum[] = "csum";
+static char src_ip[]= "src_ip";
+static char dst_ip[] = "dst_ip";
+static char options[] = "options";
+static char ipv4_str[] = "ipv4";
+static char src_port[] = "src_port";
+static char dst_port[] = "dst_port";
+static char seq[] = "seq";
+static char ack[] = "ack";
+static char offset[] = "offset";
+static char reserved[] = "reserved";
+static char window[] = "window";
+static char urgent[] = "urgent";
+static char tcp_str[] = "tcp";
+static char udp_str[] = "udp";
+static char vxlan_str[] = "vxlan";
+static char vxlan_header[] = "vxlan_header";
+static char vni[] = "vni";
+static char egress_queue[] = "egress_queue";
+static char host_metadata[] = "host_metadata";
+static char tunnel_id[] = "tunnel_id";
+static char ecmp_index[] = "ecmp_index";
+static char ingress_port[] = "ingress_port";
+static char metadata_t_str[] = "metadata_t";
+static char egress_port[] = "egress_port";
+static char empty[] = "";
+static char set_egress_port_str[] = "set_egress_port";
+static char set_tunnel_id_str[] = "set_tunnel_id";
+static char set_egress_queue_str[] = "set_egress_queue";
+static char set_host_meta_str[] = "set_host_meta";
+static char vxlan_decap_str[] = "vxlan_decap";
+static char vxlan_encap_str[] = "vxlan_encap";
+static char drop_str[] = "drop";
+static char ecmp_group_base[] = "ecmp_group_base";
+static char ecmp_group_size[] = "ecmp_group_size";
+static char route_via_ecmp_str[] = "route_via_ecmp";
+static char newDMAC[] = "newDMAC";
+static char newVLAN[] = "newVLAN";
+static char route_str[] = "route";
+static char fwd_group_base[] = "fwd_group_base";
+static char fwd_group_size[] = "fwd_group_size";
+static char forward_via_ecmp_str[] = "forward_via_ecmp";
+static char mac_address[] = "mac_address";
+static char set_dst_mac_str[] = "set_dst_mac";
+static char set_src_mac_str[] = "set_src_mac";
+static char normal_str[] = "normal";
+static char ecmp_group[] = "ecmp_group";
+static char l2fwd[] = "l2fwd";
+static char tcam[] = "tcam";
+static char tunnel_encap[] = "tunnel_encap";
+static char forward_metadata[] = "forward_metadata";
+static char routing_metadata[] = "routing_metadata";
+static char tunnel_metadata[] = "tunnel_metadata";
+static char ig_port_metadata[] = "ig_port_metadata";
+static char forward_group[] = "forward_group";
 
 #define HEADER_ETHERNET_SRC_MAC 1
 #define HEADER_ETHERNET_DST_MAC 2
 #define HEADER_ETHERNET_ETHERTYPE 3
 struct net_flow_field ethernet_fields[3] = {
-	{ .name = "src_mac", .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
-	{ .name = "dst_mac", .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
-	{ .name = "ethertype", .uid = HEADER_ETHERNET_ETHERTYPE, .bitwidth = 16},
+	{ .name = src_mac, .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
+	{ .name = dst_mac, .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
+	{ .name = ethertype, .uid = HEADER_ETHERNET_ETHERTYPE, .bitwidth = 16},
 };
 
 #define HEADER_ETHERNET 1
@@ -55,15 +128,15 @@ struct net_flow_hdr ethernet = {
 #define HEADER_VLAN_VID 3
 #define HEADER_VLAN_ETHERTYPE 4
 struct net_flow_field vlan_fields[4] = {
-	{ .name = "pcp", .uid = HEADER_VLAN_PCP, .bitwidth = 3,},
-	{ .name = "cfi", .uid = HEADER_VLAN_CFI, .bitwidth = 1,},
-	{ .name = "vid", .uid = HEADER_VLAN_VID, .bitwidth = 12,},
-	{ .name = "ethertype", .uid = HEADER_VLAN_ETHERTYPE, .bitwidth = 16,},
+	{ .name = pcp, .uid = HEADER_VLAN_PCP, .bitwidth = 3,},
+	{ .name = cfi, .uid = HEADER_VLAN_CFI, .bitwidth = 1,},
+	{ .name = vid, .uid = HEADER_VLAN_VID, .bitwidth = 12,},
+	{ .name = ethertype, .uid = HEADER_VLAN_ETHERTYPE, .bitwidth = 16,},
 };
 
 #define HEADER_VLAN 2
 struct net_flow_hdr vlan = {
-	.name = "vlan",
+	.name = vlan_str,
 	.uid = HEADER_VLAN,
 	.field_sz = 4,
 	.fields = vlan_fields,
@@ -84,46 +157,46 @@ struct net_flow_hdr vlan = {
 #define HEADER_IPV4_DST_IP 13
 #define HEADER_IPV4_OPTIONS 14
 struct net_flow_field ipv4_fields[14] = {
-	{ .name = "version",
+	{ .name = version,
 	  .uid = 1,
 	  .bitwidth = 4,},
-	{ .name = "ihl",
+	{ .name = ihl,
 	  .uid = 2,
 	  .bitwidth = 4,},
-	{ .name = "dscp",
+	{ .name = dscp,
 	  .uid = 3,
 	  .bitwidth = 6,},
-	{ .name = "ecn",
+	{ .name = ecn,
 	  .uid = 4,
 	  .bitwidth = 2,},
-	{ .name = "length",
+	{ .name = length,
 	  .uid = 5,
 	  .bitwidth = 8,},
-	{ .name = "identification",
+	{ .name = ident,
 	  .uid = 6,
 	  .bitwidth = 8,},
-	{ .name = "flags",
+	{ .name = flags,
 	  .uid = 7,
 	  .bitwidth = 3,},
-	{ .name = "fragment_offset",
+	{ .name = frag_off,
 	  .uid = 8,
 	  .bitwidth = 13,},
-	{ .name = "ttl",
+	{ .name = ttl,
 	  .uid = 9,
 	  .bitwidth = 1,},
-	{ .name = "protocol",
+	{ .name = protocol,
 	  .uid = 10,
 	  .bitwidth = 8,},
-	{ .name = "csum",
+	{ .name = csum,
 	  .uid = 11,
 	  .bitwidth = 8,},
-	{ .name = "src_ip",
+	{ .name = src_ip,
 	  .uid = 12,
 	  .bitwidth = 32,},
-	{ .name = "dst_ip",
+	{ .name = dst_ip,
 	  .uid = 13,
 	  .bitwidth = 32,},
-	{ .name = "options",
+	{ .name = options,
 	  .uid = 14,
 	  .bitwidth = 0,},
 	/* TBD options */
@@ -131,7 +204,7 @@ struct net_flow_field ipv4_fields[14] = {
 
 #define HEADER_IPV4 3
 struct net_flow_hdr ipv4 = {
-	.name = "ipv4",
+	.name = ipv4_str,
 	.uid = HEADER_IPV4,
 	.field_sz = 14,
 	.fields = ipv4_fields,
@@ -148,39 +221,39 @@ struct net_flow_hdr ipv4 = {
 #define HEADER_TCP_CSUM 9
 #define HEADER_TCP_URGENT 10
 struct net_flow_field tcp_fields[10] = {
-	{ .name = "src_port",
+	{ .name = src_port,
 	  .uid = 1,
 	  .bitwidth = 16,
 	},
-	{ .name = "dst_port",
+	{ .name = dst_port,
 	  .uid = 2,
 	  .bitwidth = 16,
 	},
-	{ .name = "seq",
+	{ .name = seq,
 	  .uid = 3,
 	  .bitwidth = 32,
 	},
-	{ .name = "ack",
+	{ .name = ack,
 	  .uid = 4,
 	  .bitwidth = 32,
 	},
-	{ .name = "offset",
+	{ .name = offset,
 	  .uid = 5,
 	  .bitwidth = 4,
 	},
-	{ .name = "reserved",
+	{ .name = reserved,
 	  .uid = 6,
 	  .bitwidth = 3},
-	{ .name = "flags",
+	{ .name = flags,
 	  .uid = 7,
 	  .bitwidth = 9},
-	{ .name = "window",
+	{ .name = window,
 	  .uid = 8,
 	  .bitwidth = 8,},
-	{ .name = "csum",
+	{ .name = csum,
 	  .uid = 9,
 	  .bitwidth = 16,},
-	{ .name = "urgent",
+	{ .name = urgent,
 	  .uid = 10,
 	  .bitwidth = 16},
 	/* TBD options */
@@ -188,7 +261,7 @@ struct net_flow_field tcp_fields[10] = {
 
 #define HEADER_TCP 4
 struct net_flow_hdr tcp = {
-	.name = "tcp",
+	.name = tcp_str,
 	.uid = HEADER_TCP,
 	.field_sz = 10,
 	.fields = tcp_fields,
@@ -199,23 +272,23 @@ struct net_flow_hdr tcp = {
 #define HEADER_UDP_LENGTH 3
 #define HEADER_UDP_CSUM 4
 struct net_flow_field udp_fields[4] = {
-	{ .name = "src_port",
+	{ .name = src_port,
 	  .uid = 1,
 	  .bitwidth = 16},
-	{ .name = "dst_port",
+	{ .name = dst_port,
 	  .uid = 2,
 	  .bitwidth = 16},
-	{ .name = "length",
+	{ .name = length,
 	  .uid = 3,
 	  .bitwidth = 16},
-	{ .name = "csum",
+	{ .name = csum,
 	  .uid = 4,
 	  .bitwidth = 16},
 };
 
 #define HEADER_UDP 5
 struct net_flow_hdr udp = {
-	.name = "udp",
+	.name = udp_str,
 	.uid = HEADER_UDP,
 	.field_sz = 4,
 	.fields = udp_fields,
@@ -225,20 +298,20 @@ struct net_flow_hdr udp = {
 #define HEADER_VXLAN_VNI 2
 #define HEADER_VXLAN_RESERVED 3
 struct net_flow_field vxlan_fields[3] = {
-	{ .name = "vxlan_header",
+	{ .name = vxlan_header,
 	  .uid = 1,
 	  .bitwidth = 32},
-	{ .name = "vni",
+	{ .name = vni,
 	  .uid = 2,
 	  .bitwidth = 24},
-	{ .name = "reserved",
+	{ .name = reserved,
 	  .uid = 3,
 	  .bitwidth = 8},
 };
 
 #define HEADER_VXLAN 6
 struct net_flow_hdr vxlan = {
-	.name = "vxlan",
+	.name = vxlan_str,
 	.uid = HEADER_VXLAN,
 	.field_sz = 3,
 	.fields = vxlan_fields,
@@ -250,26 +323,26 @@ struct net_flow_hdr vxlan = {
 #define HEADER_METADATA_ECMP_INDEX 4
 #define HEADER_METADATA_INGRESS_PORT 5
 struct net_flow_field metadata_fields[5] = {
-	{ .name = "egress_queue",
+	{ .name = egress_queue,
 	  .uid = HEADER_METADATA_EGRESS_QUEUE,
 	  .bitwidth = 8,},
-	{ .name = "host_metadata",
+	{ .name = host_metadata,
 	  .uid = HEADER_METADATA_HOST_METADATA,
 	  .bitwidth = 16,},
-	{ .name = "tunnel_id",
+	{ .name = tunnel_id,
 	  .uid = HEADER_METADATA_TUNNEL_ID,
 	  .bitwidth = 16,},
-	{ .name = "ecmp_index",
+	{ .name = ecmp_index,
 	  .uid = HEADER_METADATA_ECMP_INDEX,
 	  .bitwidth = 32,},
-	{ .name = "ingress_port",
+	{ .name = ingress_port,
 	  .uid = HEADER_METADATA_INGRESS_PORT,
 	  .bitwidth = 32,},
 };
 
 #define HEADER_METADATA 7
 struct net_flow_hdr metadata_t = {
-	.name = "metadata_t",
+	.name = metadata_t_str,
 	.uid = HEADER_METADATA,
 	.field_sz = 5,
 	.fields = metadata_fields,
@@ -277,17 +350,17 @@ struct net_flow_hdr metadata_t = {
 
 struct net_flow_action_arg set_egress_port_args[2] = {
 	{
-		.name = "egress_port",
+		.name = egress_port,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
-struct net_flow_hdr nill = {.name = "", .uid = 0, .field_sz=0, .fields = NULL};
+struct net_flow_hdr nill = {.name = empty, .uid = 0, .field_sz=0, .fields = NULL};
 
 struct net_flow_hdr *my_header_list[8] =
 {
@@ -322,173 +395,173 @@ enum better_pipeline_action_ids {
 };
 
 struct net_flow_action set_egress_port = {
-	.name = "set_egress_port",
+	.name = set_egress_port_str,
 	.uid = ACTION_SET_EGRESS_PORT,
 	.args = set_egress_port_args,
 };
 
 struct net_flow_action_arg set_tunnel_id_args[] = {
 	{
-		.name = "tunnel_id",
+		.name = tunnel_id,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
 struct net_flow_action set_tunnel_id = {
-	.name = "set_tunnel_id",
+	.name = set_tunnel_id_str,
 	.uid = ACTION_SET_TUNNEL_ID,
 	.args = set_tunnel_id_args,
 };
 
 struct net_flow_action_arg set_egress_queue_args[] = {
 	{
-		.name = "egress_queue",
+		.name = egress_queue,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
 struct net_flow_action set_egress_queue = {
-	.name = "set_egress_queue",
+	.name = set_egress_queue_str,
 	.uid = ACTION_SET_EGRESS_QUEUE,
 	.args = set_egress_queue_args,
 };
 
 struct net_flow_action_arg set_host_metadata_args[] = {
 	{
-		.name = "host_metadata",
+		.name = host_metadata,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
 struct net_flow_action set_host_metadata = {
-	.name = "set_host_mata",
+	.name = set_host_meta_str,
 	.uid = ACTION_SET_HOST_METADATA,
 	.args = set_host_metadata_args,
 };
 
 struct net_flow_action_arg vxlan_decap_args[] = {
 	{
-		.name = "vxlan_decap",
+		.name = vxlan_decap_str,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
 struct net_flow_action vxlan_decap = {
-	.name = "vxlan_decap",
+	.name = vxlan_decap_str,
 	.uid = ACTION_VXLAN_DECAP,
 	.args = vxlan_decap_args,
 };
 
 struct net_flow_action_arg vxlan_encap_args[] = {
 	{
-		.name = "vxlan_encap",
+		.name = vxlan_encap_str,
 		.type = NET_FLOW_ACTION_ARG_TYPE_U16,
 		.v.value_u32 = 0,
 	},
 	{
-		.name = "",
+		.name = empty,
 		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
 struct net_flow_action vxlan_encap = {
-	.name = "vxlan_encap",
+	.name = vxlan_encap_str,
 	.uid = ACTION_VXLAN_ENCAP,
 	.args = vxlan_encap_args,
 };
 
 struct net_flow_action drop_packet = {
-	.name = "drop_packet",
+	.name = drop_str,
 	.uid = ACTION_DROP_PACKET,
 	.args = NULL,
 };
 
 struct net_flow_action_arg route_via_ecmp_args[] = {
-	{ .name = "ecmp_group_base",
+	{ .name = ecmp_group_base,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U16,},
-	{ .name = "ecmp_group_size",
+	{ .name = ecmp_group_size,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U16,},
-	{ .name = "",
+	{ .name = empty,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
 struct net_flow_action route_via_ecmp = {
-	.name = "route_via_ecmp",
+	.name = route_via_ecmp_str,
 	.uid = ACTION_ROUTE_VIA_ECMP,
 	.args = route_via_ecmp_args,
 };
 
 struct net_flow_action_arg route_args[] = {
-	{ .name = "newDMAC",
+	{ .name = newDMAC,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U64,},
-	{ .name = "newVLAN",
+	{ .name = newVLAN,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U16,},
-	{ .name = "",
+	{ .name = empty,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
 struct net_flow_action route = {
-	.name = "route",
+	.name = route_str,
 	.uid = ACTION_ROUTE,
 	.args = route_args,
 };
 
 struct net_flow_action_arg forward_via_ecmp_args[] = {
-	{ .name = "fwd_group_base",
+	{ .name = fwd_group_base,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U32,},
-	{ .name = "fwd_group_size",
+	{ .name = fwd_group_size,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U32,},
-	{ .name = "",
+	{ .name = empty,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
 struct net_flow_action forward_via_ecmp = {
-	.name = "forward_via_ecmp",
+	.name = forward_via_ecmp_str,
 	.uid = ACTION_FORWARD_VIA_ECMP,
 	.args = forward_via_ecmp_args,
 };
 
 struct net_flow_action_arg set_mac_args[] = {
-	{ .name = "mac_address",
+	{ .name = mac_address,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_U64,},
-	{ .name = "",
+	{ .name = empty,
 	  .type = NET_FLOW_ACTION_ARG_TYPE_NULL,},
 };
 
 struct net_flow_action set_dst_mac = {
-	.name = "set_dst_mac",
+	.name = set_dst_mac_str,
 	.uid = ACTION_SET_DST_MAC,
 	.args = set_mac_args,
 };
 
 struct net_flow_action set_src_mac = {
-	.name = "set_src_mac",
+	.name = set_src_mac_str,
 	.uid = ACTION_SET_SRC_MAC,
 	.args = set_mac_args,
 };
 
 struct net_flow_action normal = {
-	.name = "normal",
+	.name = normal_str,
 	.uid = ACTION_NORMAL,
 	.args = NULL,
 };
@@ -607,7 +680,7 @@ __u32 actions_tcam[] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP,
 #define TABLE_VXLAN_DECAP 6
 
 struct net_flow_tbl my_table_ecmp_group = {
-	.name = "ecmp_group",
+	.name = ecmp_group,
 	.uid = TABLE_ECMP_GROUP,
 	.source = 2,
 	.apply_action = 2,
@@ -617,7 +690,7 @@ struct net_flow_tbl my_table_ecmp_group = {
 };
 
 struct net_flow_tbl my_table_vxlan_decap = {
-	.name = "vxlan_decap",
+	.name = vxlan_decap_str,
 	.uid = TABLE_VXLAN_DECAP,
 	.source = 4,
 	.apply_action = 4,
@@ -627,7 +700,7 @@ struct net_flow_tbl my_table_vxlan_decap = {
 };
 
 struct net_flow_tbl my_table_l2fwd = {
-	.name = "l2fwd",
+	.name = l2fwd,
 	.uid = TABLE_L2FWD,
 	.source = 3,
 	.apply_action = 3,
@@ -637,7 +710,7 @@ struct net_flow_tbl my_table_l2fwd = {
 };
 
 struct net_flow_tbl my_table_forward_group = {
-	.name = "forward_group",
+	.name = forward_group,
 	.uid = TABLE_FORWARD_GROUP,
 	.source = 3,
 	.apply_action = 3,
@@ -647,7 +720,7 @@ struct net_flow_tbl my_table_forward_group = {
 };	
 
 struct net_flow_tbl my_table_tunnel_encap = {
-	.name = "tunnel_encap",
+	.name = tunnel_encap,
 	.uid = TABLE_TUNNEL_ENCAP,
 	.source = 4,
 	.apply_action = 4,
@@ -657,7 +730,7 @@ struct net_flow_tbl my_table_tunnel_encap = {
 };
 
 struct net_flow_tbl my_table_tcam = {
-	.name = "tcam",
+	.name = tcam,
 	.uid = TABLE_TCAM,
 	.source = 1,
 	.apply_action = 1,
@@ -714,7 +787,7 @@ struct net_flow_jump_table my_parse_ethernet[] =
 
 __u32 my_ethernet_headers[2] = {HEADER_ETHERNET, 0};
 struct net_flow_hdr_node my_header_node_ethernet = {
-	.name = "ethernet",
+	.name = ether_str,
 	.uid = HEADER_INSTANCE_ETHERNET,
 	.hdrs = my_ethernet_headers,
 	.jump = my_parse_ethernet,
@@ -741,7 +814,7 @@ struct net_flow_jump_table my_parse_vlan[3] =
 
 __u32 my_vlan_headers[2] = {HEADER_VLAN, 0};
 struct net_flow_hdr_node my_header_node_vlan = {
-	.name = "vlan",
+	.name = vlan_str,
 	.uid = HEADER_INSTANCE_VLAN_OUTER,
 	.hdrs = my_vlan_headers,
 	.jump = my_parse_vlan,
@@ -759,7 +832,7 @@ struct net_flow_jump_table my_terminal_headers[2] = {
 
 __u32 my_tcp_headers[2] = {HEADER_TCP, 0};
 struct net_flow_hdr_node my_header_node_tcp = {
-	.name = "tcp",
+	.name = tcp_str,
 	.uid = HEADER_INSTANCE_TCP,
 	.hdrs = my_tcp_headers,
 	.jump = my_terminal_headers,
@@ -798,7 +871,7 @@ struct net_flow_jump_table my_parse_ipv4[3] =
 
 __u32 my_ipv4_headers[2] = {HEADER_IPV4, 0};
 struct net_flow_hdr_node my_header_node_ipv4 = {
-	.name = "ipv4",
+	.name = ipv4_str,
 	.uid = HEADER_INSTANCE_IPV4,
 	.hdrs = my_ipv4_headers,
 	.jump = my_parse_ipv4,
@@ -825,7 +898,7 @@ struct net_flow_jump_table my_parse_udp[2] =
 
 __u32 my_udp_headers[2] = {HEADER_UDP, 0};
 struct net_flow_hdr_node my_header_node_udp = {
-	.name = "udp",
+	.name = udp_str,
 	.uid = HEADER_INSTANCE_UDP,
 	.hdrs = my_udp_headers,
 	.jump = my_parse_udp,
@@ -833,7 +906,7 @@ struct net_flow_hdr_node my_header_node_udp = {
 
 __u32 my_vxlan_headers[2] = {HEADER_VXLAN, 0};
 struct net_flow_hdr_node my_header_node_vxlan = {
-	.name = "vxlan",
+	.name = vxlan_str,
 	.uid = HEADER_INSTANCE_VXLAN,
 	.hdrs = my_vxlan_headers,
 	.jump = my_terminal_headers,
@@ -841,28 +914,28 @@ struct net_flow_hdr_node my_header_node_vxlan = {
 
 __u32 my_metadata_headers[2] = {HEADER_METADATA, 0};
 struct net_flow_hdr_node my_header_node_routing_metadata = {
-	.name = "routing_metadata",
+	.name = routing_metadata,
 	.uid = HEADER_INSTANCE_ROUTING_METADATA,
 	.hdrs = my_metadata_headers,
 	.jump = my_terminal_headers,
 };
 
 struct net_flow_hdr_node my_header_node_forward_metadata = {
-	.name = "forward_metadata",
+	.name = forward_metadata,
 	.uid = HEADER_INSTANCE_FORWARD_METADATA,
 	.hdrs = my_metadata_headers,
 	.jump = my_terminal_headers,
 };
 
 struct net_flow_hdr_node my_header_node_tunnel_metadata = {
-	.name = "tunnel_metadata",
+	.name = tunnel_metadata,
 	.uid = HEADER_INSTANCE_TUNNEL_METADATA,
 	.hdrs = my_metadata_headers,
 	.jump = my_terminal_headers,
 };
 
 struct net_flow_hdr_node my_header_node_ig_port_metadata = {
-	.name = "ig_port_metadata",
+	.name = ig_port_metadata,
 	.uid = HEADER_INSTANCE_INGRESS_PORT_METADATA,
 	.hdrs = my_metadata_headers,
 	.jump = my_terminal_headers,
