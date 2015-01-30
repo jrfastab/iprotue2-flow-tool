@@ -568,6 +568,52 @@ static int flow_cmd_table(struct nlmsghdr *nlh)
 	return nl_send_auto(nsd, nlbuf);
 }
 
+/*
+ * send_error() - send a netlink error message
+ * @orighdr: original netlink message header which produced the error
+ * @err: the non-negative error code to send
+ *
+ * Return: number of bytes sent on success, or a negative error code
+ *         on failure
+ */
+static int send_error(struct nlmsghdr *orighdr, int err)
+{
+	struct nl_msg *nlbuf;
+	struct nlmsghdr *newhdr;
+	struct nlmsgerr *errmsg;
+	struct sockaddr_nl nladdr;
+	uint32_t payload_len;
+
+	if (orighdr == NULL)
+		return -EINVAL;
+
+	nlbuf = nlmsg_alloc();
+	if (nlbuf == NULL)
+		return -ENOMEM;
+
+	payload_len = orighdr->nlmsg_len;
+
+	newhdr = nlmsg_put(nlbuf, NL_AUTO_PID, orighdr->nlmsg_seq, NLMSG_ERROR,
+	                   (int)payload_len, 0);
+
+	if (newhdr == NULL) {
+		nlmsg_free(nlbuf);
+		return -EINVAL;
+	}
+
+	errmsg = nlmsg_data(newhdr);
+	errmsg->error = err;
+	memcpy(&errmsg->msg, orighdr, payload_len);
+
+	nladdr.nl_family = AF_NETLINK,
+	nladdr.nl_pid = orighdr->nlmsg_pid,
+	nladdr.nl_groups = 0,
+
+	nlmsg_set_dst(nlbuf, &nladdr);
+
+	return nl_send_auto(nsd, nlbuf);
+}
+
 static int(*type_cb[NET_FLOW_CMD_MAX+1])(struct nlmsghdr *nlh) = {
 	flow_cmd_get_tables,
 	flow_cmd_get_headers,
@@ -585,7 +631,7 @@ static int(*type_cb[NET_FLOW_CMD_MAX+1])(struct nlmsghdr *nlh) = {
 static int rx_process(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *glh = nlmsg_data(nlh);
-	int type;
+	int err;
 
 	if (nlh->nlmsg_type == NLMSG_ERROR)
 		return -EINVAL;	
@@ -593,8 +639,11 @@ static int rx_process(struct nlmsghdr *nlh)
 	if (glh->cmd > NET_FLOW_CMD_MAX)
 		return -EOPNOTSUPP;
 
-	type = glh->cmd;
-	return type_cb[type](nlh);
+	if (type_cb[glh->cmd] == NULL)
+		return -EOPNOTSUPP;
+
+	err = type_cb[glh->cmd](nlh);
+	return (err < 0) ? send_error(nlh, -err) : err;
 }
 
 static void flowd_usage(void)
