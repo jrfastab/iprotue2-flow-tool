@@ -421,6 +421,12 @@ static void flow_table_cmd_destroy_table(struct flow_msg *msg, int UNUSED(verbos
 	}
 }
 
+static void handle_error(struct nlmsgerr *errmsg)
+{
+	fprintf(stderr, "Error processing request: %s\n",
+		strerror(errmsg->error));
+}
+
 struct flow_msg *recv_flow_msg(int *err)
 {
 	static unsigned char *buf;
@@ -461,6 +467,11 @@ struct flow_msg *recv_flow_msg(int *err)
 	if (type == NLMSG_ERROR) {
 		struct flow_msg *am;
 		struct nlmsgerr *errm = nlmsg_data(msg->msg);
+
+		if (errm->error) {
+			handle_error(errm);
+			return NULL;
+		}
 
 		LIST_FOREACH(am, &ack_list_head, ack_list_element) {
 			if (am->seq == errm->msg.nlmsg_seq)
