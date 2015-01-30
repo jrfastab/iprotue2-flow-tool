@@ -96,6 +96,7 @@ static char mac_address[] = "mac_address";
 static char set_dst_mac_str[] = "set_dst_mac";
 static char set_src_mac_str[] = "set_src_mac";
 static char normal_str[] = "normal";
+static char trap_str[] = "trap";
 static char ecmp_group[] = "ecmp_group";
 static char l2fwd[] = "l2fwd";
 static char tcam[] = "tcam";
@@ -392,6 +393,7 @@ enum better_pipeline_action_ids {
 	ACTION_SET_DST_MAC,
 	ACTION_SET_SRC_MAC,
 	ACTION_NORMAL,
+	ACTION_TRAP,
 };
 
 struct net_flow_action set_egress_port = {
@@ -566,6 +568,12 @@ struct net_flow_action normal = {
 	.args = NULL,
 };
 
+struct net_flow_action trap = {
+	.name = trap_str,
+	.uid = ACTION_TRAP,
+	.args = NULL,
+};
+
 struct net_flow_action *my_action_list[] =
 {
 	&set_egress_port,
@@ -581,6 +589,7 @@ struct net_flow_action *my_action_list[] =
 	&set_dst_mac,
 	&set_src_mac,
 	&normal,
+	&trap,
 	NULL,
 };
 
@@ -670,7 +679,7 @@ __u32 actions_tunnel_encap[] = {ACTION_VXLAN_ENCAP, 0};
 __u32 actions_tcam[] = {ACTION_SET_EGRESS_PORT, ACTION_ROUTE_VIA_ECMP,
 			 ACTION_SET_TUNNEL_ID, ACTION_DROP_PACKET,
 			 ACTION_SET_DST_MAC, ACTION_SET_SRC_MAC,
-			 ACTION_NORMAL, 0};
+			 ACTION_NORMAL, ACTION_TRAP, 0};
 
 #define TABLE_TCAM 1
 #define TABLE_ECMP_GROUP 2
